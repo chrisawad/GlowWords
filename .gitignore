@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.pnpm-store/
+.codex/
+.openai/hosting.json
+*.tsbuildinfo
+*.tgz
+*.local
+.DS_Store
