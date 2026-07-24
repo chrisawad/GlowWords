@@ -33,6 +33,16 @@ Create an optimized build with `pnpm build`.
 The build also emits a Cloudflare Worker-compatible Sites package under
 `dist/`, including SPA routing and request-aware social preview metadata.
 
+## Deploy to GitHub Pages
+
+The `Deploy to GitHub Pages` workflow builds and deploys the app whenever a
+change is pushed to `main`. It can also be started manually from the repository's
+**Actions** tab.
+
+Before the first deployment, open **Settings → Pages** in the GitHub repository
+and set **Source** to **GitHub Actions**. The workflow builds asset URLs for the
+repository's project-site path automatically and publishes `dist/client`.
+
 ## Word service contract
 
 The client is ready to use a remote word source. It requests:
