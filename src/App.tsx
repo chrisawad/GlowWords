@@ -51,7 +51,7 @@ function speakAndSpellWord(word: string) {
   parts.forEach((part, index) => {
     const utterance = new SpeechSynthesisUtterance(part);
     utterance.lang = 'en-US';
-    utterance.rate = index > 0 && index < parts.length - 1 ? 0.7 : 0.85;
+    utterance.rate = index > 0 && index < parts.length - 1 ? 1 : 0.85;
     window.speechSynthesis.speak(utterance);
   });
 }
