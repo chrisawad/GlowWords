@@ -22,7 +22,7 @@ function formatTime(seconds: number): string {
   return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-function playTone(kind: 'found' | 'end') {
+function playEndTone() {
   try {
     const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     const context = new AudioContextClass();
@@ -31,8 +31,8 @@ function playTone(kind: 'found' | 'end') {
     oscillator.connect(gain);
     gain.connect(context.destination);
     oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(kind === 'found' ? 520 : 330, context.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(kind === 'found' ? 790 : 220, context.currentTime + 0.16);
+    oscillator.frequency.setValueAtTime(330, context.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(220, context.currentTime + 0.16);
     gain.gain.setValueAtTime(0.12, context.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.22);
     oscillator.start();
@@ -42,14 +42,18 @@ function playTone(kind: 'found' | 'end') {
   }
 }
 
-function speakWord(word: string) {
+function speakAndSpellWord(word: string) {
   if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return;
 
   window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(word.toLowerCase());
-  utterance.lang = 'en-US';
-  utterance.rate = 0.85;
-  window.speechSynthesis.speak(utterance);
+  const parts = [word.toLowerCase(), ...word.toUpperCase(), word.toLowerCase()];
+
+  parts.forEach((part, index) => {
+    const utterance = new SpeechSynthesisUtterance(part);
+    utterance.lang = 'en-US';
+    utterance.rate = index > 0 && index < parts.length - 1 ? 0.7 : 0.85;
+    window.speechSynthesis.speak(utterance);
+  });
 }
 
 function Sparkles() {
@@ -188,7 +192,7 @@ function Board({ puzzle, found, onFound, disabled, muted }: BoardProps) {
       const available = COLORS.filter((color) => !used.has(color));
       const color = (available.length ? available : COLORS)[Math.floor(Math.random() * (available.length || COLORS.length))];
       onFound({ word: placed.word, color, cells: placed.cells });
-      if (!muted) playTone('found');
+      if (!muted) speakAndSpellWord(placed.word);
     } else if (selection.length > 1) {
       setMiss(true);
       window.setTimeout(() => setMiss(false), 360);
@@ -269,7 +273,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
         if (current <= 1) {
           window.clearInterval(timer);
           setEnded(true);
-          if (!muted) playTone('end');
+          if (!muted) playEndTone();
           return 0;
         }
         return current - 1;
@@ -309,7 +313,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
       <div className="game-content">
         <section className="mission-card">
           <div className="mission-heading">
-            <div><span className="eyebrow game-eyebrow">Your word trail</span><h1>Find the hidden words</h1><p>Tap a word to hear it, then find it in any direction.</p></div>
+            <div><span className="eyebrow game-eyebrow">Your word trail</span><h1>Find the hidden words</h1><p>Tap a word to hear it, spell it, and hear it again.</p></div>
             <div className="score-bubble"><strong>{found.length}</strong><span>of {puzzle.placedWords.length}</span></div>
           </div>
           <div className="progress-track"><i style={{ width: `${progress * 100}%` }} /></div>
@@ -322,9 +326,9 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
                   type="button"
                   className={match ? 'found-word' : ''}
                   style={match ? { '--word-color': match.color } as CSSProperties : undefined}
-                  onClick={() => speakWord(word)}
-                  aria-label={`Hear ${word.toLowerCase()} pronounced`}
-                  title={`Hear ${word.toLowerCase()}`}
+                  onClick={() => speakAndSpellWord(word)}
+                  aria-label={`Hear ${word.toLowerCase()}, its spelling, and the word again`}
+                  title={`Hear and spell ${word.toLowerCase()}`}
                 >
                   <span aria-hidden="true">🔊</span>{match && '✓ '}{word}
                 </button>
