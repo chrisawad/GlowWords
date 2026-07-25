@@ -42,6 +42,16 @@ function playTone(kind: 'found' | 'end') {
   }
 }
 
+function speakWord(word: string) {
+  if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return;
+
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(word.toLowerCase());
+  utterance.lang = 'en-US';
+  utterance.rate = 0.85;
+  window.speechSynthesis.speak(utterance);
+}
+
 function Sparkles() {
   return <div className="sparkles" aria-hidden="true">{Array.from({ length: 14 }, (_, i) => <i key={i} />)}</div>;
 }
@@ -236,6 +246,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
 
   useEffect(() => {
     let active = true;
+    window.speechSynthesis?.cancel();
     setPuzzle(null);
     setFound([]);
     setEnded(false);
@@ -248,6 +259,8 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
     });
     return () => { active = false; };
   }, [settings, round]);
+
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
   useEffect(() => {
     if (!puzzle || ended) return;
@@ -296,14 +309,26 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
       <div className="game-content">
         <section className="mission-card">
           <div className="mission-heading">
-            <div><span className="eyebrow game-eyebrow">Your word trail</span><h1>Find the hidden words</h1><p>Drag forward, backward, up, down, or diagonal.</p></div>
+            <div><span className="eyebrow game-eyebrow">Your word trail</span><h1>Find the hidden words</h1><p>Tap a word to hear it, then find it in any direction.</p></div>
             <div className="score-bubble"><strong>{found.length}</strong><span>of {puzzle.placedWords.length}</span></div>
           </div>
           <div className="progress-track"><i style={{ width: `${progress * 100}%` }} /></div>
           <div className="word-chips">
             {puzzle.placedWords.map(({ word }) => {
               const match = found.find((item) => item.word === word);
-              return <span key={word} className={match ? 'found-word' : ''} style={match ? { '--word-color': match.color } as CSSProperties : undefined}>{match && '✓ '}{word}</span>;
+              return (
+                <button
+                  key={word}
+                  type="button"
+                  className={match ? 'found-word' : ''}
+                  style={match ? { '--word-color': match.color } as CSSProperties : undefined}
+                  onClick={() => speakWord(word)}
+                  aria-label={`Hear ${word.toLowerCase()} pronounced`}
+                  title={`Hear ${word.toLowerCase()}`}
+                >
+                  <span aria-hidden="true">🔊</span>{match && '✓ '}{word}
+                </button>
+              );
             })}
           </div>
         </section>
