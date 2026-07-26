@@ -83,7 +83,7 @@ function SetupScreen({ onStart }: { onStart: (settings: GameSettings) => void })
           <h1>Ready, set,<br /><em>find!</em></h1>
           <p>Race the clock, uncover hidden words, and make the whole board glow.</p>
           <div className="hero-art" role="img" aria-label="A cheerful firefly exploring a magical garden of letters">
-            <img src="/assets/letter-garden.webp" alt="" />
+            <img src={`${import.meta.env.BASE_URL}assets/letter-garden.webp`} alt="" />
             <div className="art-sticker">Can you find<br /><strong>them all?</strong></div>
             <div className="hero-palette" aria-hidden="true"><i /><i /><i /><span>Glow garden</span></div>
           </div>
