@@ -121,9 +121,10 @@
 .practice-message {
   min-height: 40px;
   margin: 0 auto 17px;
-  color: #898296;
-  font-size: 14px;
-  line-height: 1.4;
+  color: #574f69;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
 }
 
 .practice-message-listening { color: #7857e8; font-weight: 800; }
@@ -269,7 +270,7 @@
   .practice-card { padding: 26px 16px 22px; border-radius: 28px 28px 28px 9px; }
   .practice-actions { grid-template-columns: 1fr; }
   .practice-actions > button { min-height: 61px; }
-  .practice-message { font-size: 12px; }
+  .practice-message { padding-inline: 6px; font-size: 15px; line-height: 1.55; }
 }
 
 @media (prefers-reduced-motion: reduce) {
