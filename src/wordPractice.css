@@ -121,9 +121,9 @@
 .practice-message {
   min-height: 40px;
   margin: 0 auto 17px;
-  color: #574f69;
+  color: var(--ink);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.5;
 }
 
