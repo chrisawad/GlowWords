@@ -12,7 +12,7 @@ const AGE_OPTIONS: { id: AgeGroup; label: string; level: string; emoji: string; 
   { id: '13+', label: '13+', level: 'Word master', emoji: '✨', defaults: { duration: 360, wordCount: 14, gridSize: 16 } },
 ];
 
-const COLORS = ['#ff6b6b', '#42c6a5', '#ffbd45', '#7c6cff', '#36a9e8', '#ee6dbe', '#8bc34a'];
+const COLORS = ['#ff4f87', '#11c9a5', '#ffb000', '#7957ff', '#00a8e8', '#ef5ad7', '#75c92f'];
 const DURATION_OPTIONS = [60, 120, 180, 240, 300, 360];
 const GRID_OPTIONS = [8, 10, 12, 14, 16];
 const WORD_OPTIONS = [6, 8, 10, 12, 14];
@@ -43,7 +43,7 @@ function playTone(kind: 'found' | 'end') {
 }
 
 function Sparkles() {
-  return <div className="sparkles" aria-hidden="true">{Array.from({ length: 14 }, (_, i) => <i key={i} />)}</div>;
+  return <div className="sparkles" aria-hidden="true">{Array.from({ length: 20 }, (_, i) => <i key={i} />)}</div>;
 }
 
 function SetupScreen({ onStart }: { onStart: (settings: GameSettings) => void }) {
@@ -71,6 +71,7 @@ function SetupScreen({ onStart }: { onStart: (settings: GameSettings) => void })
           <div className="hero-art" role="img" aria-label="A cheerful firefly exploring a magical garden of letters">
             <img src="/assets/letter-garden.webp" alt="" />
             <div className="art-sticker">Can you find<br /><strong>them all?</strong></div>
+            <div className="hero-palette" aria-hidden="true"><i /><i /><i /><span>Glow garden</span></div>
           </div>
         </div>
 
@@ -206,11 +207,16 @@ function Board({ puzzle, found, onFound, disabled, muted }: BoardProps) {
         const position = { row: rowIndex, col: colIndex };
         const key = cellKey(position);
         const foundColor = foundByCell.get(key);
+        const cellStyle = {
+          '--cell-hue': (rowIndex * 41 + colIndex * 53 + 264) % 360,
+          '--cell-delay': `${(rowIndex + colIndex) * 12}ms`,
+          ...(foundColor ? { '--found-color': foundColor } : {}),
+        } as CSSProperties;
         return (
           <div
             key={key}
             className={`letter-cell ${selectedKeys.has(key) ? 'selecting' : ''} ${foundColor ? 'found-cell' : ''}`}
-            style={foundColor ? { '--found-color': foundColor } as CSSProperties : undefined}
+            style={cellStyle}
             data-cell="true"
             data-row={rowIndex}
             data-col={colIndex}
@@ -286,6 +292,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
 
   return (
     <main className="game-shell">
+      <div className="game-aurora" aria-hidden="true"><i /><i /><i /><i /></div>
       <header className="game-header">
         <button className="icon-button home-button" onClick={onHome} aria-label="Back to setup">←</button>
         <div className="mini-brand"><span>G</span><strong>Glow Words</strong></div>
@@ -301,9 +308,13 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
           </div>
           <div className="progress-track"><i style={{ width: `${progress * 100}%` }} /></div>
           <div className="word-chips">
-            {puzzle.placedWords.map(({ word }) => {
+            {puzzle.placedWords.map(({ word }, index) => {
               const match = found.find((item) => item.word === word);
-              return <span key={word} className={match ? 'found-word' : ''} style={match ? { '--word-color': match.color } as CSSProperties : undefined}>{match && '✓ '}{word}</span>;
+              const chipStyle = {
+                '--chip-hue': (index * 47 + 270) % 360,
+                ...(match ? { '--word-color': match.color } : {}),
+              } as CSSProperties;
+              return <span key={word} className={match ? 'found-word' : ''} style={chipStyle}>{match && '✓ '}{word}</span>;
             })}
           </div>
         </section>
