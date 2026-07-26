@@ -137,8 +137,12 @@ button { -webkit-tap-highlight-color: transparent; }
 .progress-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--violet), #ef54d7, var(--coral), var(--yellow), var(--mint), var(--sky)); background-size: 180% 100%; box-shadow: 0 0 12px rgba(239,84,199,.35); transition: width .35s ease; animation: progress-glow 3s linear infinite; }
 @keyframes progress-glow { to { background-position: 180% 0; } }
 .word-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.word-chips > span { position: relative; padding: 7px 11px; border: 1px solid hsl(var(--chip-hue) 72% 50% / .24); border-bottom-width: 3px; border-radius: 10px; color: #4b455f; background: linear-gradient(145deg, white, hsl(var(--chip-hue) 88% 94%)); font-size: 12px; font-weight: 800; letter-spacing: .04em; transition: .25s; }
-.word-chips > span.found-word { color: #333044; border-color: color-mix(in srgb, var(--word-color), white 32%); background: color-mix(in srgb, var(--word-color), white 78%); text-decoration-line: line-through; text-decoration-color: var(--word-color); text-decoration-thickness: 3px; transform: rotate(-1deg); }
+.word-chips > button { position: relative; padding: 7px 11px; border: 1px solid hsl(var(--chip-hue) 72% 50% / .24); border-bottom-width: 3px; border-radius: 10px; color: #4b455f; background: linear-gradient(145deg, white, hsl(var(--chip-hue) 88% 94%)); font-size: 12px; font-weight: 800; letter-spacing: .04em; cursor: pointer; transition: .2s; }
+.word-chips > button > span { margin-right: 5px; font-size: 11px; }
+.word-chips > button:hover { border-color: hsl(var(--chip-hue) 72% 50% / .55); background: hsl(var(--chip-hue) 88% 94%); transform: translateY(-1px); }
+.word-chips > button:focus-visible { outline: 3px solid rgba(109,92,232,.3); outline-offset: 2px; }
+.word-chips > button:active { transform: translateY(1px); }
+.word-chips > button.found-word { color: #333044; border-color: color-mix(in srgb, var(--word-color), white 32%); background: color-mix(in srgb, var(--word-color), white 78%); text-decoration-line: line-through; text-decoration-color: var(--word-color); text-decoration-thickness: 3px; transform: rotate(-1deg); }
 .board-wrap { margin-top: 22px; }
 .board-caption { display: flex; justify-content: space-between; align-items: center; margin: 0 7px 9px; color: #938da3; font-size: 11px; font-weight: 800; }
 .board-caption i { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; background: conic-gradient(var(--coral), var(--yellow), var(--mint), var(--sky), var(--violet), var(--coral)); box-shadow: 0 0 7px rgba(255,79,135,.38); }
@@ -200,7 +204,7 @@ button { -webkit-tap-highlight-color: transparent; }
   .game-content { width: calc(100% - 20px); margin-top: 15px; }
   .mission-card { padding: 19px 17px; border-radius: 23px 23px 23px 8px; }
   .mission-heading p { max-width: 230px; font-size: 11px; }.score-bubble { flex-basis: 58px; width: 58px; }.score-bubble strong { font-size: 21px; }
-  .word-chips { gap: 5px; }.word-chips > span { padding: 6px 8px; font-size: 10px; }
+  .word-chips { gap: 5px; }.word-chips > button { padding: 6px 8px; font-size: 10px; }
   .letter-board { padding: 7px; border-radius: 21px 21px 21px 7px; box-shadow: 0 12px 35px rgba(65,48,121,.13), inset 0 0 0 4px #f7f5ff; }
   .letter-cell::before { inset: 4%; }
   .result-card { padding-inline: 23px; }
