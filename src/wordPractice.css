@@ -1,0 +1,277 @@
+.practice-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(35, 27, 76, .58);
+  backdrop-filter: blur(12px);
+}
+
+.practice-card {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: calc(100svh - 36px);
+  padding: 31px clamp(20px, 5vw, 43px) 27px;
+  overflow: auto;
+  border: 4px solid transparent;
+  border-radius: 38px 38px 38px 12px;
+  color: var(--ink);
+  background:
+    linear-gradient(#fffaf4, #fffaf4) padding-box,
+    conic-gradient(from 220deg, var(--coral), var(--yellow), var(--mint), var(--sky), var(--violet), var(--coral)) border-box;
+  box-shadow: 0 30px 90px rgba(20, 13, 60, .34);
+  text-align: center;
+  animation: practice-pop .38s cubic-bezier(.2, .9, .3, 1.25);
+}
+
+@keyframes practice-pop {
+  from { opacity: 0; transform: scale(.76) rotate(-2deg); }
+}
+
+.practice-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  aspect-ratio: 1;
+  border: 1px solid #e8e2f1;
+  border-radius: 50%;
+  color: #6f6880;
+  background: white;
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.practice-close:hover {
+  color: var(--coral);
+  border-color: #ffc2d5;
+  transform: rotate(5deg);
+}
+
+.practice-mascot {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  aspect-ratio: 1;
+  margin: 0 auto 13px;
+  border: 3px solid rgba(255, 255, 255, .8);
+  border-radius: 50% 50% 50% 20px;
+  background: conic-gradient(from 210deg, #ffdc72, #ff9072, #ef72d8, #9878ff, #65d9e8, #72e2b2, #ffdc72);
+  box-shadow: 0 9px 0 rgba(114, 84, 245, .15), 0 14px 25px rgba(86, 58, 154, .15);
+  font-size: 37px;
+}
+
+.practice-eyebrow {
+  color: var(--coral);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.practice-card h2 {
+  margin: 5px 0 18px;
+  font: 700 clamp(25px, 6vw, 34px)/1.05 'Fredoka';
+}
+
+.practice-letters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(5px, 1.5vw, 9px);
+  margin: 0 auto 17px;
+}
+
+.practice-letters button {
+  display: grid;
+  place-items: center;
+  width: clamp(39px, 9vw, 54px);
+  aspect-ratio: 1;
+  padding: 0;
+  border: 2px solid hsl(var(--letter-hue, 267) 75% 78%);
+  border-bottom-width: 5px;
+  border-radius: 15px 15px 15px 5px;
+  color: #3a3356;
+  background: linear-gradient(145deg, white, #eee9ff);
+  box-shadow: 0 5px 12px rgba(86, 67, 150, .09);
+  font: 700 clamp(20px, 5vw, 28px)/1 'Fredoka';
+  cursor: pointer;
+  transition: .15s ease;
+}
+
+.practice-letters button:nth-child(5n+2) { border-color: #ffc45d; background: linear-gradient(145deg, #fff, #fff2ce); }
+.practice-letters button:nth-child(5n+3) { border-color: #7cdec9; background: linear-gradient(145deg, #fff, #e1fbf4); }
+.practice-letters button:nth-child(5n+4) { border-color: #79c8f5; background: linear-gradient(145deg, #fff, #e5f5ff); }
+.practice-letters button:nth-child(5n) { border-color: #f59bbb; background: linear-gradient(145deg, #fff, #ffe5ef); }
+
+.practice-letters button:hover,
+.practice-letters button:focus-visible {
+  outline: none;
+  transform: translateY(-4px) rotate(-2deg);
+  box-shadow: 0 9px 16px rgba(86, 67, 150, .15);
+}
+
+.practice-letters button:active { transform: translateY(1px); border-bottom-width: 2px; }
+
+.practice-message {
+  min-height: 40px;
+  margin: 0 auto 17px;
+  color: #898296;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.practice-message-listening { color: #7857e8; font-weight: 800; }
+.practice-message-retry { color: #d56a38; font-weight: 700; }
+.practice-message-unavailable { color: #766d83; }
+
+.practice-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px;
+}
+
+.practice-actions > button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 68px;
+  padding: 10px 14px;
+  border: 2px solid transparent;
+  border-radius: 17px 17px 17px 6px;
+  text-align: left;
+  cursor: pointer;
+  transition: .17s ease;
+}
+
+.practice-actions > button:hover { transform: translateY(-2px); }
+.practice-actions > button > span:first-child { flex: 0 0 30px; font-size: 25px; text-align: center; }
+.practice-actions strong, .practice-actions small { display: block; }
+.practice-actions strong { font: 700 15px 'Fredoka'; }
+.practice-actions small { margin-top: 2px; color: #8f879c; font-size: 10px; font-weight: 700; }
+
+.practice-listen {
+  color: #4b3977;
+  border-color: #ddcffd !important;
+  background: linear-gradient(145deg, #fff, #eee7ff);
+  box-shadow: 0 7px 16px rgba(114, 84, 245, .11);
+}
+
+.practice-record {
+  color: #78334c;
+  border-color: #ffc1d5 !important;
+  background: linear-gradient(145deg, #fff, #ffe6ee);
+  box-shadow: 0 7px 16px rgba(255, 79, 135, .11);
+}
+
+.practice-record:disabled { cursor: wait; }
+.record-dot { color: var(--coral); text-shadow: 0 0 0 rgba(255, 79, 135, .3); }
+.practice-record.is-listening .record-dot { animation: record-pulse .85s ease-in-out infinite; }
+
+@keyframes record-pulse {
+  50% { transform: scale(1.35); text-shadow: 0 0 18px rgba(255, 79, 135, .8); }
+}
+
+.practice-return {
+  margin-top: 17px;
+  padding: 8px 12px;
+  border: 0;
+  color: #77708c;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.practice-success {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 34%, rgba(255, 224, 98, .28), transparent 31%),
+    linear-gradient(#fffaf4, #fffaf4) padding-box,
+    conic-gradient(from 220deg, var(--coral), var(--yellow), var(--mint), var(--sky), var(--violet), var(--coral)) border-box;
+}
+
+.practice-success .practice-mascot { animation: mascot-bounce .55s ease-in-out infinite alternate; }
+
+@keyframes mascot-bounce {
+  to { transform: translateY(-7px) rotate(5deg) scale(1.04); }
+}
+
+.practice-success-word {
+  margin: 8px auto 13px;
+  color: var(--violet);
+  font: 700 clamp(35px, 10vw, 55px)/1 'Fredoka';
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  filter: drop-shadow(3px 4px 0 rgba(255, 184, 0, .24));
+}
+
+.practice-success p { position: relative; z-index: 2; margin: 0; color: #77708c; }
+.practice-bonus {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  aspect-ratio: 1;
+  margin: 18px auto 2px;
+  border: 3px solid white;
+  border-radius: 50% 50% 50% 18px;
+  color: white;
+  background: linear-gradient(145deg, var(--mint), #18a8f2);
+  box-shadow: 0 8px 0 rgba(18, 201, 165, .2), 0 12px 24px rgba(24, 168, 242, .2);
+  font: 700 25px 'Fredoka';
+  animation: bonus-pop .45s .18s both cubic-bezier(.2, .9, .3, 1.4);
+}
+
+@keyframes bonus-pop {
+  from { opacity: 0; transform: scale(.2) rotate(-20deg); }
+}
+
+.practice-party { position: absolute; z-index: 1; inset: 0; overflow: hidden; pointer-events: none; }
+.practice-party i {
+  --party-x: 50%;
+  --party-color: var(--coral);
+  position: absolute;
+  left: var(--party-x);
+  top: -18px;
+  width: 9px;
+  height: 15px;
+  border-radius: 2px;
+  background: var(--party-color);
+  animation: practice-fall 2.1s linear infinite;
+}
+
+.practice-party i:nth-child(5n+2) { --party-color: var(--yellow); border-radius: 50%; }
+.practice-party i:nth-child(5n+3) { --party-color: var(--mint); }
+.practice-party i:nth-child(5n+4) { --party-color: var(--sky); border-radius: 50%; }
+.practice-party i:nth-child(5n) { --party-color: var(--violet); }
+.practice-party i:nth-child(8n+1) { --party-x: 5%; animation-delay: -.2s; }
+.practice-party i:nth-child(8n+2) { --party-x: 17%; animation-delay: -.8s; }
+.practice-party i:nth-child(8n+3) { --party-x: 29%; animation-delay: -1.4s; }
+.practice-party i:nth-child(8n+4) { --party-x: 42%; animation-delay: -.5s; }
+.practice-party i:nth-child(8n+5) { --party-x: 56%; animation-delay: -1.1s; }
+.practice-party i:nth-child(8n+6) { --party-x: 69%; animation-delay: -.3s; }
+.practice-party i:nth-child(8n+7) { --party-x: 82%; animation-delay: -1.6s; }
+.practice-party i:nth-child(8n) { --party-x: 95%; animation-delay: -.7s; }
+
+@keyframes practice-fall {
+  to { transform: translateY(590px) rotate(720deg); }
+}
+
+@media (max-width: 520px) {
+  .practice-card { padding: 26px 16px 22px; border-radius: 28px 28px 28px 9px; }
+  .practice-actions { grid-template-columns: 1fr; }
+  .practice-actions > button { min-height: 61px; }
+  .practice-message { font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .practice-party { display: none; }
+}
