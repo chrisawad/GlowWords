@@ -3,6 +3,7 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import { cellKey, cellsBetween, createPuzzle } from './puzzle';
 import { getWords } from './words';
 import type { AgeGroup, FoundWord, GameSettings, Position, Puzzle } from './types';
+import WordPracticeDialog from './WordPracticeDialog';
 
 const AGE_OPTIONS: { id: AgeGroup; label: string; level: string; emoji: string; defaults: Omit<GameSettings, 'ageGroup'> }[] = [
   { id: '5-6', label: '5–6', level: 'Early reader', emoji: '🌱', defaults: { duration: 180, wordCount: 6, gridSize: 8 } },
@@ -253,6 +254,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
   const [ended, setEnded] = useState(false);
   const [muted, setMuted] = useState(false);
   const [round, setRound] = useState(0);
+  const [practiceWord, setPracticeWord] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -261,6 +263,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
     setFound([]);
     setEnded(false);
     setTimeLeft(settings.duration);
+    setPracticeWord(null);
     getWords(settings).then((result) => {
       if (!active) return;
       const nextPuzzle = createPuzzle(result.words, settings.gridSize);
@@ -273,7 +276,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
   useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
   useEffect(() => {
-    if (!puzzle || ended) return;
+    if (!puzzle || ended || practiceWord) return;
     const timer = window.setInterval(() => {
       setTimeLeft((current) => {
         if (current <= 1) {
@@ -286,7 +289,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
       });
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [puzzle, ended, muted]);
+  }, [puzzle, ended, muted, practiceWord]);
 
   useEffect(() => {
     if (puzzle && found.length === puzzle.placedWords.length && found.length > 0) {
@@ -298,6 +301,16 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
   const addFound = (word: FoundWord) => {
     setFound((current) => current.some((item) => item.word === word.word) ? current : [...current, word]);
   };
+
+  const openPractice = (word: string) => {
+    window.speechSynthesis?.cancel();
+    setPracticeWord(word);
+  };
+
+  const finishPractice = useCallback((bonusSeconds: number) => {
+    setTimeLeft((current) => current + bonusSeconds);
+    setPracticeWord(null);
+  }, []);
 
   if (!puzzle) {
     return <main className="loading-screen"><div className="loader-orbit"><span>G</span></div><h1>Hiding your words…</h1><p>Sprinkling letters across the board</p></main>;
@@ -320,7 +333,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
       <div className="game-content">
         <section className="mission-card">
           <div className="mission-heading">
-            <div><span className="eyebrow game-eyebrow">Your word trail</span><h1>Find the hidden words</h1><p>Tap a word to hear it, spell it, and hear it again.</p></div>
+            <div><span className="eyebrow game-eyebrow">Your word trail</span><h1>Find the hidden words</h1><p>Tap a word to pause the game and practice it.</p></div>
             <div className="score-bubble"><strong>{found.length}</strong><span>of {puzzle.placedWords.length}</span></div>
           </div>
           <div className="progress-track"><i style={{ width: `${progress * 100}%` }} /></div>
@@ -337,9 +350,9 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
                   type="button"
                   className={match ? 'found-word' : ''}
                   style={chipStyle}
-                  onClick={() => speakAndSpellWord(word)}
-                  aria-label={`Hear ${word.toLowerCase()}, its spelling, and the word again`}
-                  title={`Hear and spell ${word.toLowerCase()}`}
+                  onClick={() => openPractice(word)}
+                  aria-label={`Pause and practice ${word.toLowerCase()}`}
+                  title={`Practice ${word.toLowerCase()}`}
                 >
                   <span aria-hidden="true">🔊</span>{match && '✓ '}{word}
                 </button>
@@ -350,9 +363,17 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
 
         <section className="board-wrap">
           <div className="board-caption"><span><i /> Swipe a straight line</span><span className="source-note" title="Words are built into the app when the server is unavailable">{source === 'server' ? '● Online words' : '● Offline words'}</span></div>
-          <Board puzzle={puzzle} found={found} onFound={addFound} disabled={ended} muted={muted} />
+          <Board puzzle={puzzle} found={found} onFound={addFound} disabled={ended || Boolean(practiceWord)} muted={muted} />
         </section>
       </div>
+
+      {practiceWord && (
+        <WordPracticeDialog
+          word={practiceWord}
+          muted={muted}
+          onComplete={finishPractice}
+        />
+      )}
 
       {ended && (
         <div className="result-backdrop" role="dialog" aria-modal="true" aria-labelledby="result-title">
