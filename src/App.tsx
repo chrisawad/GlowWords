@@ -255,6 +255,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
   const [muted, setMuted] = useState(false);
   const [round, setRound] = useState(0);
   const [practiceWord, setPracticeWord] = useState<string | null>(null);
+  const [trailExpanded, setTrailExpanded] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -264,6 +265,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
     setEnded(false);
     setTimeLeft(settings.duration);
     setPracticeWord(null);
+    setTrailExpanded(false);
     getWords(settings).then((result) => {
       if (!active) return;
       const nextPuzzle = createPuzzle(result.words, settings.gridSize);
@@ -321,7 +323,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
   const allFound = found.length === puzzle.placedWords.length;
 
   return (
-    <main className="game-shell">
+    <main className={`game-shell ${trailExpanded ? 'trail-expanded' : ''}`}>
       <div className="game-aurora" aria-hidden="true"><i /><i /><i /><i /></div>
       <header className="game-header">
         <button className="icon-button home-button" onClick={onHome} aria-label="Back to setup">←</button>
@@ -332,12 +334,30 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
 
       <div className="game-content">
         <section className="mission-card">
+          <div className="trail-header" aria-label="Game controls">
+            <div className="trail-header-actions">
+              <button className="icon-button home-button" onClick={onHome} aria-label="Back to setup">←</button>
+              <div className="trail-brand"><span>G</span><strong>Glow Words</strong></div>
+              <button className="icon-button" onClick={() => setMuted(!muted)} aria-label={muted ? 'Turn sound on' : 'Turn sound off'}>{muted ? '🔇' : '🔊'}</button>
+            </div>
+            <div className={`timer ${urgency ? 'urgent' : ''}`} aria-label={`${formatTime(timeLeft)} remaining`}><span>⏱</span><strong>{formatTime(timeLeft)}</strong></div>
+          </div>
+          <button
+            type="button"
+            className="trail-toggle"
+            onClick={() => setTrailExpanded((expanded) => !expanded)}
+            aria-expanded={trailExpanded}
+            aria-controls="word-trail-list"
+            aria-label={`${trailExpanded ? 'Collapse' : 'Expand'} word list menu`}
+          >
+            <span>Words</span><b aria-hidden="true">{trailExpanded ? '‹' : '›'}</b>
+          </button>
           <div className="mission-heading">
             <div><span className="eyebrow game-eyebrow">Your word trail</span><h1>Find the hidden words</h1><p>Tap a word to pause the game and practice it.</p></div>
             <div className="score-bubble"><strong>{found.length}</strong><span>of {puzzle.placedWords.length}</span></div>
           </div>
           <div className="progress-track"><i style={{ width: `${progress * 100}%` }} /></div>
-          <div className="word-chips">
+          <div className="word-chips" id="word-trail-list">
             {puzzle.placedWords.map(({ word }, index) => {
               const match = found.find((item) => item.word === word);
               const chipStyle = {
@@ -363,7 +383,9 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
 
         <section className="board-wrap">
           <div className="board-caption"><span><i /> Swipe a straight line</span><span className="source-note" title="Words are built into the app when the server is unavailable">{source === 'server' ? '● Online words' : '● Offline words'}</span></div>
-          <Board puzzle={puzzle} found={found} onFound={addFound} disabled={ended || Boolean(practiceWord)} muted={muted} />
+          <div className="board-stage">
+            <Board puzzle={puzzle} found={found} onFound={addFound} disabled={ended || Boolean(practiceWord)} muted={muted} />
+          </div>
         </section>
       </div>
 

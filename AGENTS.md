@@ -64,3 +64,10 @@ These instructions apply to all work under `/workspaces`.
   nginx host URLs using the current `NGINX_HOST_HTTP_PORT` and
   `NGINX_HOST_HTTPS_PORT` values.
 - Read `/workspaces/HOSTING.md` for the publishing and validation workflow.
+
+## Sites deployments
+
+- Use the locally installed nginx for previews of unmerged changes, feature
+  branches, and pull requests.
+- Use Sites only for changes that have already been merged through a pull
+  request. Never publish unmerged pull request changes to Sites.
