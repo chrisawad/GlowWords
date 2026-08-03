@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import './wordPractice.css';
 import { cancelSpeech, speakText } from './speech';
-import { isSilkBrowser } from './browser';
 
-type PracticeStatus = 'idle' | 'listening' | 'recording' | 'review' | 'retry' | 'success' | 'unavailable';
+type PracticeStatus = 'idle' | 'listening' | 'retry' | 'success' | 'unavailable';
 
 interface SpeechRecognitionAlternativeLike {
   transcript: string;
@@ -66,16 +65,6 @@ function getRecognitionConstructor(): SpeechRecognitionConstructor | null {
   return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
 }
 
-function canRecordSpeech(): boolean {
-  return Boolean(
-    typeof window !== 'undefined'
-    && typeof navigator !== 'undefined'
-    && 'MediaRecorder' in window
-    && navigator.mediaDevices
-    && typeof navigator.mediaDevices.getUserMedia === 'function',
-  );
-}
-
 function playCelebrationSound() {
   try {
     const AudioContextClass = window.AudioContext ?? window.webkitAudioContext;
@@ -111,12 +100,7 @@ export default function WordPracticeDialog({
   const [status, setStatus] = useState<PracticeStatus>('idle');
   const [heard, setHeard] = useState('');
   const [practicedByListening, setPracticedByListening] = useState(false);
-  const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
-  const [useNativeCapture, setUseNativeCapture] = useState(() => isSilkBrowser() || !canRecordSpeech());
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingUrlRef = useRef<string | null>(null);
-  const recordingTimeoutRef = useRef<number | null>(null);
   const activeRef = useRef(true);
   const finishingRef = useRef(false);
   const recognitionSupported = useMemo(() => Boolean(getRecognitionConstructor()), []);
@@ -131,16 +115,6 @@ export default function WordPracticeDialog({
         recognition.onend = null;
         recognition.abort();
       }
-      const recorder = mediaRecorderRef.current;
-      if (recorder) {
-        recorder.ondataavailable = null;
-        recorder.onerror = null;
-        recorder.onstop = null;
-        if (recorder.state === 'recording') recorder.stop();
-      }
-      recorder?.stream.getTracks().forEach((track) => track.stop());
-      if (recordingTimeoutRef.current !== null) window.clearTimeout(recordingTimeoutRef.current);
-      if (recordingUrlRef.current) URL.revokeObjectURL(recordingUrlRef.current);
       cancelSpeech();
     };
   }, []);
@@ -171,7 +145,7 @@ export default function WordPracticeDialog({
 
   const tryWord = async () => {
     const Recognition = getRecognitionConstructor();
-    if (status === 'listening' || status === 'recording' || status === 'success') return;
+    if (!Recognition || status === 'listening' || status === 'success') return;
 
     cancelSpeech();
     setHeard('');
@@ -183,46 +157,6 @@ export default function WordPracticeDialog({
       const stream = permissionStream;
       if (!activeRef.current) {
         stream.getTracks().forEach((track) => track.stop());
-        return;
-      }
-
-      if (!Recognition) {
-        const chunks: Blob[] = [];
-        const recorder = new MediaRecorder(stream);
-        let failed = false;
-        mediaRecorderRef.current = recorder;
-        recorder.ondataavailable = (event) => {
-          if (event.data.size > 0) chunks.push(event.data);
-        };
-        recorder.onerror = () => {
-          failed = true;
-          stream.getTracks().forEach((track) => track.stop());
-          mediaRecorderRef.current = null;
-          setStatus('unavailable');
-        };
-        recorder.onstop = () => {
-          stream.getTracks().forEach((track) => track.stop());
-          mediaRecorderRef.current = null;
-          if (recordingTimeoutRef.current !== null) {
-            window.clearTimeout(recordingTimeoutRef.current);
-            recordingTimeoutRef.current = null;
-          }
-          if (failed || !activeRef.current) return;
-          const recording = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
-          if (!recording.size) {
-            setStatus('unavailable');
-            return;
-          }
-          if (recordingUrlRef.current) URL.revokeObjectURL(recordingUrlRef.current);
-          recordingUrlRef.current = URL.createObjectURL(recording);
-          setRecordingUrl(recordingUrlRef.current);
-          setStatus('review');
-        };
-        recorder.start();
-        setStatus('recording');
-        recordingTimeoutRef.current = window.setTimeout(() => {
-          if (recorder.state === 'recording') recorder.stop();
-        }, 5000);
         return;
       }
 
@@ -265,43 +199,26 @@ export default function WordPracticeDialog({
       recognition.start();
     } catch {
       permissionStream?.getTracks().forEach((track) => track.stop());
-      setUseNativeCapture(true);
-      finishListening('idle');
+      finishListening('unavailable');
     }
   };
 
-  const useCapturedRecording = (event: ChangeEvent<HTMLInputElement>) => {
-    const recording = event.target.files?.[0];
-    event.target.value = '';
-    if (!recording) return;
-    if (recordingUrlRef.current) URL.revokeObjectURL(recordingUrlRef.current);
-    recordingUrlRef.current = URL.createObjectURL(recording);
-    setRecordingUrl(recordingUrlRef.current);
-    setStatus('review');
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop();
-  };
-
   const returnToGame = () => {
-    if (status === 'listening' || status === 'recording' || status === 'success') return;
+    if (status === 'listening' || status === 'success') return;
     onComplete(practicedByListening ? 10 : 0);
   };
 
   const message = status === 'listening'
     ? 'Listening… say the word now!'
-    : status === 'recording'
-      ? 'Recording… say the word, then tap stop.'
-      : status === 'review'
-        ? 'Listen back. If it sounds right, celebrate your practice!'
-        : status === 'retry'
-          ? heard
-            ? `I heard “${heard}”. Let’s try once more!`
-            : 'I didn’t catch that. Let’s try once more!'
-          : status === 'unavailable'
-            ? 'The microphone isn’t available, but you can still listen and practice.'
-            : 'Tap each letter, hear the whole word, or try saying it yourself.';
+    : status === 'retry'
+      ? heard
+        ? `I heard “${heard}”. Let’s try once more!`
+        : 'I didn’t catch that. Let’s try once more!'
+      : status === 'unavailable'
+        ? 'The microphone isn’t available, but you can still listen and practice.'
+        : recognitionSupported
+          ? 'Tap each letter, hear the whole word, or try saying it yourself.'
+          : 'Tap each letter or hear the whole word, then say it out loud.';
 
   return (
     <div className="practice-backdrop" role="presentation">
@@ -325,7 +242,7 @@ export default function WordPracticeDialog({
         )}
 
         <div className="practice-mascot" aria-hidden="true">
-          {status === 'success' ? '🎉' : status === 'listening' || status === 'recording' ? '👂' : '✨'}
+          {status === 'success' ? '🎉' : status === 'listening' ? '👂' : '✨'}
         </div>
         <span className="practice-eyebrow">
           {status === 'success' ? 'Super speaking!' : 'Word practice'}
@@ -359,39 +276,23 @@ export default function WordPracticeDialog({
               {message}
             </p>
 
-            {status === 'review' && recordingUrl && (
-              <div className="practice-review">
-                <audio controls src={recordingUrl} aria-label="Your word practice recording" />
-                <button type="button" onClick={() => setStatus('success')}>That sounded great!</button>
-              </div>
-            )}
-
             <div className="practice-actions">
               <button className="practice-listen" type="button" onClick={readWord}>
                 <span aria-hidden="true">🔊</span>
                 <span><strong>Hear the word</strong><small>Listen and say it out loud</small></span>
               </button>
 
-              {useNativeCapture ? (
-                <label className="practice-record practice-record-capture">
-                  <input type="file" accept="audio/*" capture onChange={useCapturedRecording} />
-                  <span className="record-dot" aria-hidden="true">●</span>
-                  <span>
-                    <strong>{status === 'review' ? 'Try again' : 'Try it yourself'}</strong>
-                    <small>Record and listen back</small>
-                  </span>
-                </label>
-              ) : status !== 'unavailable' && (
+              {recognitionSupported && status !== 'unavailable' && (
                 <button
-                  className={`practice-record ${status === 'listening' || status === 'recording' ? 'is-listening' : ''}`}
+                  className={`practice-record ${status === 'listening' ? 'is-listening' : ''}`}
                   type="button"
-                  onClick={status === 'recording' ? stopRecording : tryWord}
+                  onClick={tryWord}
                   disabled={status === 'listening'}
                 >
                   <span className="record-dot" aria-hidden="true">●</span>
                   <span>
-                    <strong>{status === 'listening' ? 'Listening…' : status === 'recording' ? 'Stop recording' : status === 'review' ? 'Try again' : 'Try it yourself'}</strong>
-                    <small>{recognitionSupported ? `Say “${word.toLowerCase()}”` : 'Record and listen back'}</small>
+                    <strong>{status === 'listening' ? 'Listening…' : 'Try it yourself'}</strong>
+                    <small>{`Say “${word.toLowerCase()}”`}</small>
                   </span>
                 </button>
               )}
