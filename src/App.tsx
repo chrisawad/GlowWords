@@ -4,6 +4,7 @@ import { cellKey, cellsBetween, createPuzzle } from './puzzle';
 import { getWords } from './words';
 import type { AgeGroup, FoundWord, GameSettings, Position, Puzzle } from './types';
 import WordPracticeDialog from './WordPracticeDialog';
+import { cancelSpeech, speakParts } from './speech';
 
 const AGE_OPTIONS: { id: AgeGroup; label: string; level: string; emoji: string; defaults: Omit<GameSettings, 'ageGroup'> }[] = [
   { id: '5-6', label: '5–6', level: 'Early reader', emoji: '🌱', defaults: { duration: 180, wordCount: 6, gridSize: 8 } },
@@ -44,17 +45,11 @@ function playEndTone() {
 }
 
 function speakAndSpellWord(word: string) {
-  if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return;
-
-  window.speechSynthesis.cancel();
   const parts = [word.toLowerCase(), ...word.toUpperCase(), word.toLowerCase()];
-
-  parts.forEach((part, index) => {
-    const utterance = new SpeechSynthesisUtterance(part);
-    utterance.lang = 'en-US';
-    utterance.rate = index > 0 && index < parts.length - 1 ? 1 : 0.85;
-    window.speechSynthesis.speak(utterance);
-  });
+  speakParts(parts.map((text, index) => ({
+    text,
+    rate: index > 0 && index < parts.length - 1 ? 1 : 0.85,
+  })));
 }
 
 function Sparkles() {
@@ -259,7 +254,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
 
   useEffect(() => {
     let active = true;
-    window.speechSynthesis?.cancel();
+    cancelSpeech();
     setPuzzle(null);
     setFound([]);
     setEnded(false);
@@ -275,7 +270,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
     return () => { active = false; };
   }, [settings, round]);
 
-  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+  useEffect(() => cancelSpeech, []);
 
   useEffect(() => {
     if (!puzzle || ended || practiceWord) return;
@@ -305,7 +300,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
   };
 
   const openPractice = (word: string) => {
-    window.speechSynthesis?.cancel();
+    cancelSpeech();
     setPracticeWord(word);
   };
 

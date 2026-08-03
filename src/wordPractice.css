@@ -127,9 +127,34 @@
   line-height: 1.5;
 }
 
-.practice-message-listening { color: #7857e8; font-weight: 800; }
+.practice-message-listening,
+.practice-message-recording { color: #7857e8; font-weight: 800; }
 .practice-message-retry { color: #d56a38; font-weight: 700; }
 .practice-message-unavailable { color: #766d83; }
+
+.practice-review {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin: -4px 0 15px;
+  padding: 10px;
+  border: 2px solid #c8eadf;
+  border-radius: 16px 16px 16px 6px;
+  background: #effbf7;
+}
+
+.practice-review audio { width: 100%; min-width: 0; height: 40px; }
+.practice-review button {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 12px 12px 12px 4px;
+  color: white;
+  background: var(--mint);
+  font-weight: 900;
+  cursor: pointer;
+}
 
 .practice-actions {
   display: grid;
@@ -271,6 +296,7 @@
   .practice-actions { grid-template-columns: 1fr; }
   .practice-actions > button { min-height: 61px; }
   .practice-message { padding-inline: 6px; font-size: 15px; line-height: 1.55; }
+  .practice-review { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
