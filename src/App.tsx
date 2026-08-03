@@ -363,7 +363,9 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
 
         <section className="board-wrap">
           <div className="board-caption"><span><i /> Swipe a straight line</span><span className="source-note" title="Words are built into the app when the server is unavailable">{source === 'server' ? '● Online words' : '● Offline words'}</span></div>
-          <Board puzzle={puzzle} found={found} onFound={addFound} disabled={ended || Boolean(practiceWord)} muted={muted} />
+          <div className="board-stage">
+            <Board puzzle={puzzle} found={found} onFound={addFound} disabled={ended || Boolean(practiceWord)} muted={muted} />
+          </div>
         </section>
       </div>
 
