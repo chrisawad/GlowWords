@@ -255,6 +255,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
   const [muted, setMuted] = useState(false);
   const [round, setRound] = useState(0);
   const [practiceWord, setPracticeWord] = useState<string | null>(null);
+  const [trailExpanded, setTrailExpanded] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -264,6 +265,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
     setEnded(false);
     setTimeLeft(settings.duration);
     setPracticeWord(null);
+    setTrailExpanded(false);
     getWords(settings).then((result) => {
       if (!active) return;
       const nextPuzzle = createPuzzle(result.words, settings.gridSize);
@@ -321,7 +323,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
   const allFound = found.length === puzzle.placedWords.length;
 
   return (
-    <main className="game-shell">
+    <main className={`game-shell ${trailExpanded ? 'trail-expanded' : ''}`}>
       <div className="game-aurora" aria-hidden="true"><i /><i /><i /><i /></div>
       <header className="game-header">
         <button className="icon-button home-button" onClick={onHome} aria-label="Back to setup">←</button>
@@ -332,12 +334,22 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
 
       <div className="game-content">
         <section className="mission-card">
+          <button
+            type="button"
+            className="trail-toggle"
+            onClick={() => setTrailExpanded((expanded) => !expanded)}
+            aria-expanded={trailExpanded}
+            aria-controls="word-trail-list"
+            aria-label={`${trailExpanded ? 'Collapse' : 'Expand'} word list menu`}
+          >
+            <span>Words</span><b aria-hidden="true">{trailExpanded ? '‹' : '›'}</b>
+          </button>
           <div className="mission-heading">
             <div><span className="eyebrow game-eyebrow">Your word trail</span><h1>Find the hidden words</h1><p>Tap a word to pause the game and practice it.</p></div>
             <div className="score-bubble"><strong>{found.length}</strong><span>of {puzzle.placedWords.length}</span></div>
           </div>
           <div className="progress-track"><i style={{ width: `${progress * 100}%` }} /></div>
-          <div className="word-chips">
+          <div className="word-chips" id="word-trail-list">
             {puzzle.placedWords.map(({ word }, index) => {
               const match = found.find((item) => item.word === word);
               const chipStyle = {
