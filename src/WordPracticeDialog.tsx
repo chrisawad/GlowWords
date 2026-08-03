@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import './wordPractice.css';
 import { cancelSpeech, speakText } from './speech';
+import { isSilkBrowser } from './browser';
 
 type PracticeStatus = 'idle' | 'listening' | 'recording' | 'review' | 'retry' | 'success' | 'unavailable';
 
@@ -111,13 +112,13 @@ export default function WordPracticeDialog({
   const [heard, setHeard] = useState('');
   const [practicedByListening, setPracticedByListening] = useState(false);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
+  const [useNativeCapture, setUseNativeCapture] = useState(() => isSilkBrowser() || !canRecordSpeech());
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingUrlRef = useRef<string | null>(null);
   const recordingTimeoutRef = useRef<number | null>(null);
   const activeRef = useRef(true);
   const finishingRef = useRef(false);
-  const recordingSupported = useMemo(canRecordSpeech, []);
   const recognitionSupported = useMemo(() => Boolean(getRecognitionConstructor()), []);
 
   useEffect(() => {
@@ -264,8 +265,19 @@ export default function WordPracticeDialog({
       recognition.start();
     } catch {
       permissionStream?.getTracks().forEach((track) => track.stop());
-      finishListening('unavailable');
+      setUseNativeCapture(true);
+      finishListening('idle');
     }
+  };
+
+  const useCapturedRecording = (event: ChangeEvent<HTMLInputElement>) => {
+    const recording = event.target.files?.[0];
+    event.target.value = '';
+    if (!recording) return;
+    if (recordingUrlRef.current) URL.revokeObjectURL(recordingUrlRef.current);
+    recordingUrlRef.current = URL.createObjectURL(recording);
+    setRecordingUrl(recordingUrlRef.current);
+    setStatus('review');
   };
 
   const stopRecording = () => {
@@ -360,7 +372,16 @@ export default function WordPracticeDialog({
                 <span><strong>Hear the word</strong><small>Listen and say it out loud</small></span>
               </button>
 
-              {recordingSupported && status !== 'unavailable' && (
+              {useNativeCapture ? (
+                <label className="practice-record practice-record-capture">
+                  <input type="file" accept="audio/*" capture onChange={useCapturedRecording} />
+                  <span className="record-dot" aria-hidden="true">●</span>
+                  <span>
+                    <strong>{status === 'review' ? 'Try again' : 'Try it yourself'}</strong>
+                    <small>Record and listen back</small>
+                  </span>
+                </label>
+              ) : status !== 'unavailable' && (
                 <button
                   className={`practice-record ${status === 'listening' || status === 'recording' ? 'is-listening' : ''}`}
                   type="button"

@@ -1,3 +1,5 @@
+import { isSilkBrowser } from './browser';
+
 interface NativeSpeechBridge {
   speak(text: string, rate: number, pitch: number): void;
   cancel(): void;
@@ -15,7 +17,37 @@ export interface SpeechPart {
   pitch?: number;
 }
 
+let fallbackModule: Promise<typeof import('./fallbackSpeech')> | null = null;
+let speechRequest = 0;
+
+function getFallbackModule() {
+  fallbackModule ??= import('./fallbackSpeech').catch((error: unknown) => {
+    fallbackModule = null;
+    throw error;
+  });
+  return fallbackModule;
+}
+
+function needsFallbackSynthesizer(): boolean {
+  return isSilkBrowser()
+    || !('speechSynthesis' in window)
+    || !('SpeechSynthesisUtterance' in window);
+}
+
+if (typeof window !== 'undefined' && isSilkBrowser()) {
+  void getFallbackModule()
+    .then(({ prepareFallback }) => prepareFallback())
+    .catch((error: unknown) => console.warn('Fallback speech could not be prepared', error));
+}
+
 export function cancelSpeech() {
+  speechRequest += 1;
+  if (fallbackModule) {
+    void fallbackModule
+      .then(({ stopFallback }) => stopFallback())
+      .catch(() => undefined);
+  }
+
   if (window.GlowWordsNativeSpeech) {
     window.GlowWordsNativeSpeech.cancel();
     return;
@@ -26,6 +58,7 @@ export function cancelSpeech() {
 
 export function speakParts(parts: SpeechPart[]) {
   cancelSpeech();
+  const request = speechRequest;
 
   if (window.GlowWordsNativeSpeech) {
     parts.forEach(({ text, rate = 1, pitch = 1 }) => {
@@ -34,7 +67,12 @@ export function speakParts(parts: SpeechPart[]) {
     return;
   }
 
-  if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return;
+  if (needsFallbackSynthesizer()) {
+    void getFallbackModule()
+      .then(({ speakFallback }) => speakFallback(parts, () => request === speechRequest))
+      .catch((error: unknown) => console.warn('Fallback speech is unavailable', error));
+    return;
+  }
 
   parts.forEach(({ text, rate = 1, pitch = 1 }) => {
     const utterance = new SpeechSynthesisUtterance(text);

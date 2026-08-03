@@ -15,7 +15,8 @@
     "react": "latest",
     "react-dom": "latest",
     "@types/react": "latest",
-    "@types/react-dom": "latest"
+    "@types/react-dom": "latest",
+    "mespeak": "2.0.2"
   },
   "devDependencies": {}
 }

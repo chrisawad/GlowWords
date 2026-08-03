@@ -17,6 +17,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: latest
         version: 6.0.3(vite@8.1.5)
+      mespeak:
+        specifier: 2.0.2
+        version: 2.0.2
       react:
         specifier: latest
         version: 19.2.8
@@ -387,6 +390,9 @@ packages:
     resolution: {integrity: sha512-WkUDrojuJs0xkgGf2udWxa3yGBRxPtxUkB79i6aCZLRgc7PM8fZe9TosfPDcvEpQZbuFASnHYmRLBLUbmLOIIA==}
     engines: {node: '>= 12.0.0'}
 
+  mespeak@2.0.2:
+    resolution: {integrity: sha512-vrSqilK/IXXpgPqyFQjuJLqwO6TYgVXd84hGj76F1jQ/DEBna4wjSntyTz/zlaH/6oJm8cRj50AkpKcLzQiuxQ==}
+
   nanoid@3.3.16:
     resolution: {integrity: sha512-bzlKTyNJ7+LdGIIwy8ijFpIqEQIvafahV7eYykJ8Cvh42EdJeODoJ6gUJXpQJvej1BddH8OqTXZNE/KfbWAu8Q==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
@@ -694,6 +700,8 @@ snapshots:
       lightningcss-linux-x64-musl: 1.33.0
       lightningcss-win32-arm64-msvc: 1.33.0
       lightningcss-win32-x64-msvc: 1.33.0
+
+  mespeak@2.0.2: {}
 
   nanoid@3.3.16: {}
 
