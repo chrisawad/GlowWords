@@ -137,7 +137,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .progress-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--violet), #ef54d7, var(--coral), var(--yellow), var(--mint), var(--sky)); background-size: 180% 100%; box-shadow: 0 0 12px rgba(239,84,199,.35); transition: width .35s ease; animation: progress-glow 3s linear infinite; }
 @keyframes progress-glow { to { background-position: 180% 0; } }
 .word-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.trail-toggle { display: none; }
+.trail-header, .trail-toggle { display: none; }
 .word-chips > button { position: relative; padding: 7px 11px; border: 1px solid hsl(var(--chip-hue) 72% 50% / .24); border-bottom-width: 3px; border-radius: 10px; color: #4b455f; background: linear-gradient(145deg, white, hsl(var(--chip-hue) 88% 94%)); font-size: 12px; font-weight: 800; letter-spacing: .04em; cursor: pointer; transition: .2s; }
 .word-chips > button > span { margin-right: 5px; font-size: 11px; }
 .word-chips > button:hover { border-color: hsl(var(--chip-hue) 72% 50% / .55); background: hsl(var(--chip-hue) 88% 94%); transform: translateY(-1px); }
@@ -222,12 +222,18 @@ button { -webkit-tap-highlight-color: transparent; }
 
 @media (orientation: landscape) and (pointer: coarse) {
   .game-shell { padding-bottom: max(4px, env(safe-area-inset-bottom)); }
-  .game-header { min-height: 50px; grid-template-columns: 34px 1fr auto 34px; gap: 7px; padding: max(4px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left)); }
+  .game-header { display: none; }
   .icon-button { width: 32px; }
-  .mini-brand span { display: none; }.mini-brand strong { font-size: 15px; }
   .timer { min-width: 82px; padding: 4px 8px; }.timer strong { font-size: 16px; }.timer span { display: none; }
   .game-content { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px; width: calc(100% - 12px); margin-top: 4px; }
   .mission-card { display: flex; flex-direction: column; width: max-content; max-width: 12rem; height: 100%; min-height: 0; overflow: hidden; padding: 7px; border-radius: 16px 16px 16px 6px; transition: width .2s ease, max-width .2s ease; }
+  .trail-header { display: flex; flex: 0 0 auto; flex-direction: column; gap: 5px; }
+  .trail-header-actions { display: grid; grid-template-columns: 30px minmax(0, 1fr) 30px; gap: 5px; align-items: center; }
+  .trail-header-actions .icon-button { width: 30px; border-radius: 9px; font-size: 15px; }
+  .trail-brand { display: flex; min-width: 0; align-items: center; justify-content: center; }
+  .trail-brand span { display: grid; place-items: center; width: 28px; aspect-ratio: 1; border-radius: 9px 9px 9px 3px; color: white; background: conic-gradient(from 215deg, #704cf4, #ed54d5, #ff6279, #ffb800, #12c9a5, #18a8f2, #704cf4); font: 700 16px/1 'Fredoka'; }
+  .trail-brand strong { display: none; overflow: hidden; font: 700 14px/1 'Fredoka'; text-overflow: ellipsis; white-space: nowrap; }
+  .trail-header .timer { justify-content: center; width: 100%; min-width: 0; min-height: 29px; }
   .trail-toggle { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 32px; padding: 5px 8px; border: 0; border-radius: 10px; color: #5b4e93; background: #f1edff; font-size: 11px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
   .trail-toggle b { font: 700 22px/1 'Fredoka'; }
   .mission-heading, .progress-track { display: none; }
@@ -243,6 +249,7 @@ button { -webkit-tap-highlight-color: transparent; }
   .letter-board { padding: 7px; border-radius: 21px 21px 21px 7px; box-shadow: 0 12px 35px rgba(65,48,121,.13), inset 0 0 0 4px #f7f5ff; }
   .letter-cell::before { inset: 4%; }
   .trail-expanded .mission-card { width: min(22rem, 42vw); max-width: none; padding: 10px 12px; }
+  .trail-expanded .trail-brand { gap: 7px; justify-content: flex-start; }.trail-expanded .trail-brand strong { display: block; }
   .trail-expanded .mission-heading { display: flex; margin-top: 8px; }
   .trail-expanded .progress-track { display: block; }
 }

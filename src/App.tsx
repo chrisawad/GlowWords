@@ -334,6 +334,14 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
 
       <div className="game-content">
         <section className="mission-card">
+          <div className="trail-header" aria-label="Game controls">
+            <div className="trail-header-actions">
+              <button className="icon-button home-button" onClick={onHome} aria-label="Back to setup">←</button>
+              <div className="trail-brand"><span>G</span><strong>Glow Words</strong></div>
+              <button className="icon-button" onClick={() => setMuted(!muted)} aria-label={muted ? 'Turn sound on' : 'Turn sound off'}>{muted ? '🔇' : '🔊'}</button>
+            </div>
+            <div className={`timer ${urgency ? 'urgent' : ''}`} aria-label={`${formatTime(timeLeft)} remaining`}><span>⏱</span><strong>{formatTime(timeLeft)}</strong></div>
+          </div>
           <button
             type="button"
             className="trail-toggle"
