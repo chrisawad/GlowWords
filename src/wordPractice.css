@@ -75,19 +75,44 @@
 }
 
 .practice-card h2 {
-  margin: 5px 0 18px;
+  margin: 5px 0 15px;
   font: 700 clamp(25px, 6vw, 34px)/1.05 'Fredoka';
 }
 
+.sound-slide-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 470px;
+  margin: 0 auto 8px;
+  color: #665b80;
+  text-align: left;
+}
+
+.sound-slide-heading strong { font: 700 14px 'Fredoka'; }
+.sound-slide-heading strong span { margin-right: 4px; }
+.sound-slide-heading small { color: #958da4; font-size: 10px; font-weight: 800; }
+
 .practice-letters {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: clamp(5px, 1.5vw, 9px);
-  margin: 0 auto 17px;
+  max-width: 470px;
+  margin: 0 auto 10px;
+  padding: 11px 9px 12px;
+  border: 2px dashed #d9cff3;
+  border-radius: 20px 20px 20px 7px;
+  background: rgba(245, 241, 255, .62);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .practice-letters button {
+  position: relative;
   display: grid;
   place-items: center;
   width: clamp(39px, 9vw, 54px);
@@ -104,6 +129,25 @@
   transition: .15s ease;
 }
 
+.practice-letters button > span { pointer-events: none; }
+.practice-letters button > i {
+  position: absolute;
+  top: -8px;
+  left: -7px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  aspect-ratio: 1;
+  border: 2px solid white;
+  border-radius: 50%;
+  color: white;
+  background: var(--coral);
+  box-shadow: 0 3px 8px rgba(255, 79, 135, .3);
+  font-size: 9px;
+  font-style: normal;
+  pointer-events: none;
+}
+
 .practice-letters button:nth-child(5n+2) { border-color: #ffc45d; background: linear-gradient(145deg, #fff, #fff2ce); }
 .practice-letters button:nth-child(5n+3) { border-color: #7cdec9; background: linear-gradient(145deg, #fff, #e1fbf4); }
 .practice-letters button:nth-child(5n+4) { border-color: #79c8f5; background: linear-gradient(145deg, #fff, #e5f5ff); }
@@ -117,6 +161,70 @@
 }
 
 .practice-letters button:active { transform: translateY(1px); border-bottom-width: 2px; }
+
+.practice-letters button.is-traced {
+  color: #332763;
+  border-color: #9b83f4;
+  background: linear-gradient(145deg, #fff, #ddd4ff);
+  box-shadow: 0 0 0 3px rgba(114, 84, 245, .12), 0 7px 14px rgba(86, 67, 150, .16);
+  transform: translateY(-3px);
+}
+
+.practice-letters button.is-sounding {
+  color: white;
+  border-color: #6445dc;
+  background: linear-gradient(145deg, #9d82ff, #704cf4);
+  box-shadow: 0 0 0 5px rgba(114, 84, 245, .15), 0 8px 18px rgba(86, 67, 150, .25);
+  transform: translateY(-5px) scale(1.05);
+}
+
+.practice-letters.is-blended button {
+  color: #2d2850;
+  border-color: #5fd3b8;
+  background: linear-gradient(145deg, #fff, #c9f6e9);
+  animation: sound-blend .42s both;
+}
+
+.practice-letters.is-blended button:nth-child(2n) { animation-delay: .05s; }
+.practice-letters.is-blended button:nth-child(3n) { animation-delay: .1s; }
+
+@keyframes sound-blend {
+  50% { transform: translateY(-7px) rotate(-2deg) scale(1.06); }
+}
+
+.sound-coach {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 470px;
+  min-height: 54px;
+  margin: 0 auto 14px;
+  padding: 8px 12px;
+  border: 1px solid #e4dcf7;
+  border-radius: 16px 16px 16px 6px;
+  color: #574a77;
+  background: white;
+  text-align: left;
+  box-shadow: 0 5px 14px rgba(74, 56, 126, .07);
+}
+
+.sound-coach > span {
+  display: grid;
+  flex: 0 0 36px;
+  place-items: center;
+  width: 36px;
+  aspect-ratio: 1;
+  border-radius: 12px 12px 12px 4px;
+  background: #f0ebff;
+  font-size: 19px;
+}
+
+.sound-coach strong,
+.sound-coach small { display: block; }
+.sound-coach strong { font: 700 14px 'Fredoka'; }
+.sound-coach small { margin-top: 2px; color: #958da4; font-size: 10px; font-weight: 700; }
+.sound-coach.is-complete { border-color: #9be3d2; background: #effbf7; }
+.sound-coach.is-complete > span { background: #d5f7ed; }
 
 .practice-message {
   min-height: 40px;

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import './wordPractice.css';
-import { cancelSpeech, speakText } from './speech';
+import { getPhonicsCues } from './phonics';
+import { cancelSpeech, speakParts, speakText } from './speech';
 
 type PracticeStatus = 'idle' | 'listening' | 'recording' | 'review' | 'retry' | 'success' | 'unavailable';
 
@@ -111,14 +113,27 @@ export default function WordPracticeDialog({
   const [heard, setHeard] = useState('');
   const [practicedByListening, setPracticedByListening] = useState(false);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
+  const [activeCueIndex, setActiveCueIndex] = useState<number | null>(null);
+  const [tracedCueIndexes, setTracedCueIndexes] = useState<number[]>([]);
+  const [blendComplete, setBlendComplete] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingUrlRef = useRef<string | null>(null);
   const recordingTimeoutRef = useRef<number | null>(null);
   const activeRef = useRef(true);
   const finishingRef = useRef(false);
+  const soundPointerIdRef = useRef<number | null>(null);
+  const lastCueIndexRef = useRef<number | null>(null);
+  const tracedCueIndexesRef = useRef<number[]>([]);
+  const blendTimeoutRef = useRef<number | null>(null);
+  const soundTrailRef = useRef<HTMLDivElement | null>(null);
   const recordingSupported = useMemo(canRecordSpeech, []);
   const recognitionSupported = useMemo(() => Boolean(getRecognitionConstructor()), []);
+  const phonicsCues = useMemo(() => getPhonicsCues(word), [word]);
+  const cueIndexByLetter = useMemo(() => word.split('').map((_, letterIndex) => (
+    phonicsCues.findIndex((cue) => letterIndex >= cue.start && letterIndex <= cue.end)
+  )), [phonicsCues, word]);
+  const soundPracticeDisabled = status === 'listening' || status === 'recording' || status === 'success';
 
   useEffect(() => {
     return () => {
@@ -139,6 +154,7 @@ export default function WordPracticeDialog({
       }
       recorder?.stream.getTracks().forEach((track) => track.stop());
       if (recordingTimeoutRef.current !== null) window.clearTimeout(recordingTimeoutRef.current);
+      if (blendTimeoutRef.current !== null) window.clearTimeout(blendTimeoutRef.current);
       if (recordingUrlRef.current) URL.revokeObjectURL(recordingUrlRef.current);
       cancelSpeech();
     };
@@ -151,15 +167,83 @@ export default function WordPracticeDialog({
     return () => window.clearTimeout(timeout);
   }, [muted, onComplete, status]);
 
-  const readLetter = (letter: string) => {
-    if (status === 'success') return;
-    speakText(letter, 0.65);
+  const visitSoundCues = (cueIndexes: number[], reset = false) => {
+    if (soundPracticeDisabled) return;
+
+    const previous = reset ? [] : tracedCueIndexesRef.current;
+    const next = [...previous];
+    const freshCueIndexes = cueIndexes.filter((cueIndex) => !next.includes(cueIndex));
+    freshCueIndexes.forEach((cueIndex) => next.push(cueIndex));
+    tracedCueIndexesRef.current = next;
+    setTracedCueIndexes(next);
+    setActiveCueIndex(cueIndexes.at(-1) ?? null);
+    setBlendComplete(false);
+    setPracticedByListening(true);
+
+    if (!muted && freshCueIndexes.length > 0) {
+      speakParts(freshCueIndexes.map((cueIndex) => ({
+        text: phonicsCues[cueIndex].spoken,
+        rate: 0.62,
+        pitch: 1.08,
+      })));
+    }
+  };
+
+  const beginSoundSlide = (event: ReactPointerEvent<HTMLButtonElement>, cueIndex: number) => {
+    if (soundPracticeDisabled) return;
+    event.preventDefault();
+    if (blendTimeoutRef.current !== null) window.clearTimeout(blendTimeoutRef.current);
+    const reset = cueIndex === 0 || tracedCueIndexesRef.current.length === phonicsCues.length;
+    soundPointerIdRef.current = event.pointerId;
+    lastCueIndexRef.current = cueIndex;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    visitSoundCues([cueIndex], reset);
+  };
+
+  const moveSoundSlide = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerId !== soundPointerIdRef.current || lastCueIndexRef.current === null) return;
+    event.preventDefault();
+    const letter = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-sound-letter]');
+    if (!letter || !soundTrailRef.current?.contains(letter)) return;
+    const cueIndex = Number(letter.dataset.soundCue);
+    const previousCueIndex = lastCueIndexRef.current;
+    if (!Number.isInteger(cueIndex) || cueIndex === previousCueIndex) return;
+
+    const direction = cueIndex > previousCueIndex ? 1 : -1;
+    const crossedCueIndexes: number[] = [];
+    for (let index = previousCueIndex + direction; direction > 0 ? index <= cueIndex : index >= cueIndex; index += direction) {
+      crossedCueIndexes.push(index);
+    }
+    lastCueIndexRef.current = cueIndex;
+    visitSoundCues(crossedCueIndexes);
+  };
+
+  const finishSoundSlide = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerId !== soundPointerIdRef.current) return;
+    soundPointerIdRef.current = null;
+    lastCueIndexRef.current = null;
+
+    if (tracedCueIndexesRef.current.length === phonicsCues.length) {
+      setBlendComplete(true);
+      if (!muted) {
+        blendTimeoutRef.current = window.setTimeout(() => {
+          speakText(word.toLowerCase(), 0.72);
+          blendTimeoutRef.current = null;
+        }, 520);
+      }
+    }
+  };
+
+  const readSoundWithKeyboard = (event: React.MouseEvent<HTMLButtonElement>, cueIndex: number) => {
+    if (event.detail !== 0) return;
+    visitSoundCues([cueIndex], cueIndex === 0);
   };
 
   const readWord = () => {
     if (status === 'success') return;
     setPracticedByListening(true);
-    speakText(word.toLowerCase(), 0.72);
+    setBlendComplete(true);
+    if (!muted) speakText(word.toLowerCase(), 0.72);
   };
 
   const finishListening = (nextStatus: PracticeStatus) => {
@@ -173,6 +257,7 @@ export default function WordPracticeDialog({
     if (status === 'listening' || status === 'recording' || status === 'success') return;
 
     cancelSpeech();
+    if (blendTimeoutRef.current !== null) window.clearTimeout(blendTimeoutRef.current);
     setHeard('');
     finishingRef.current = false;
     let permissionStream: MediaStream | null = null;
@@ -289,7 +374,11 @@ export default function WordPracticeDialog({
             : 'I didn’t catch that. Let’s try once more!'
           : status === 'unavailable'
             ? 'The microphone isn’t available, but you can still listen and practice.'
-            : 'Tap each letter, hear the whole word, or try saying it yourself.';
+            : blendComplete
+              ? `You blended the sounds into “${word.toLowerCase()}”!`
+              : 'Start at the star and slide across the letters. Listen to each sound!';
+
+  const activeCue = activeCueIndex === null ? null : phonicsCues[activeCueIndex];
 
   return (
     <div className="practice-backdrop" role="presentation">
@@ -330,17 +419,47 @@ export default function WordPracticeDialog({
           </>
         ) : (
           <>
-            <div className="practice-letters" aria-label={`Spell ${word.toLowerCase()}`}>
+            <div className="sound-slide-heading">
+              <strong><span aria-hidden="true">☝️</span> Sound slide</strong>
+              <small>{muted ? 'Sound is off' : 'Start at the star and glide →'}</small>
+            </div>
+            <div
+              ref={soundTrailRef}
+              className={`practice-letters ${blendComplete ? 'is-blended' : ''}`}
+              aria-label={`Sound out ${word.toLowerCase()}`}
+              onPointerMove={moveSoundSlide}
+              onPointerUp={finishSoundSlide}
+              onPointerCancel={finishSoundSlide}
+            >
               {word.split('').map((letter, index) => (
                 <button
                   key={`${letter}-${index}`}
                   type="button"
-                  onClick={() => readLetter(letter)}
-                  aria-label={`Hear the letter ${letter}`}
+                  className={`${tracedCueIndexes.includes(cueIndexByLetter[index]) ? 'is-traced' : ''} ${activeCueIndex === cueIndexByLetter[index] ? 'is-sounding' : ''}`}
+                  data-sound-letter="true"
+                  data-sound-cue={cueIndexByLetter[index]}
+                  onPointerDown={(event) => beginSoundSlide(event, cueIndexByLetter[index])}
+                  onClick={(event) => readSoundWithKeyboard(event, cueIndexByLetter[index])}
+                  aria-label={`Hear ${phonicsCues[cueIndexByLetter[index]]?.letters ?? letter} say ${phonicsCues[cueIndexByLetter[index]]?.label ?? letter}`}
+                  aria-pressed={tracedCueIndexes.includes(cueIndexByLetter[index])}
                 >
-                  {letter}
+                  <span>{letter}</span>
+                  {index === 0 && <i aria-hidden="true">★</i>}
                 </button>
               ))}
+            </div>
+
+            <div className={`sound-coach ${blendComplete ? 'is-complete' : ''}`} aria-live="polite">
+              <span aria-hidden="true">{blendComplete ? '✨' : activeCue ? '🔊' : '🌈'}</span>
+              <div>
+                {blendComplete ? (
+                  <><strong>{word}</strong><small>All the sounds blend into one word!</small></>
+                ) : activeCue ? (
+                  <><strong>{activeCue.letters} says “{activeCue.label}”</strong><small>{tracedCueIndexes.length} of {phonicsCues.length} sounds explored</small></>
+                ) : (
+                  <><strong>Ready to sound it out?</strong><small>Some letters team up to make one sound.</small></>
+                )}
+              </div>
             </div>
 
             <p id="practice-message" className={`practice-message practice-message-${status}`} aria-live="polite">
