@@ -121,6 +121,7 @@ export default function WordPracticeDialog({
   const recognitionSupported = useMemo(() => Boolean(getRecognitionConstructor()), []);
 
   useEffect(() => {
+    activeRef.current = true;
     return () => {
       activeRef.current = false;
       const recognition = recognitionRef.current;
@@ -164,17 +165,10 @@ export default function WordPracticeDialog({
 
   const finishListening = (nextStatus: PracticeStatus) => {
     recognitionRef.current = null;
-    finishingRef.current = false;
     setStatus((current) => current === 'success' ? current : nextStatus);
   };
 
-  const tryWord = async () => {
-    const Recognition = getRecognitionConstructor();
-    if (status === 'listening' || status === 'recording' || status === 'success') return;
-
-    cancelSpeech();
-    setHeard('');
-    finishingRef.current = false;
+  const startRecording = async () => {
     let permissionStream: MediaStream | null = null;
 
     try {
@@ -185,51 +179,51 @@ export default function WordPracticeDialog({
         return;
       }
 
-      if (!Recognition) {
-        const chunks: Blob[] = [];
-        const recorder = new MediaRecorder(stream);
-        let failed = false;
-        mediaRecorderRef.current = recorder;
-        recorder.ondataavailable = (event) => {
-          if (event.data.size > 0) chunks.push(event.data);
-        };
-        recorder.onerror = () => {
-          failed = true;
-          stream.getTracks().forEach((track) => track.stop());
-          mediaRecorderRef.current = null;
+      const chunks: Blob[] = [];
+      const recorder = new MediaRecorder(stream);
+      let failed = false;
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunks.push(event.data);
+      };
+      recorder.onerror = () => {
+        failed = true;
+        stream.getTracks().forEach((track) => track.stop());
+        mediaRecorderRef.current = null;
+        setStatus('unavailable');
+      };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        mediaRecorderRef.current = null;
+        if (recordingTimeoutRef.current !== null) {
+          window.clearTimeout(recordingTimeoutRef.current);
+          recordingTimeoutRef.current = null;
+        }
+        if (failed || !activeRef.current) return;
+        const recording = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+        if (!recording.size) {
           setStatus('unavailable');
-        };
-        recorder.onstop = () => {
-          stream.getTracks().forEach((track) => track.stop());
-          mediaRecorderRef.current = null;
-          if (recordingTimeoutRef.current !== null) {
-            window.clearTimeout(recordingTimeoutRef.current);
-            recordingTimeoutRef.current = null;
-          }
-          if (failed || !activeRef.current) return;
-          const recording = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
-          if (!recording.size) {
-            setStatus('unavailable');
-            return;
-          }
-          if (recordingUrlRef.current) URL.revokeObjectURL(recordingUrlRef.current);
-          recordingUrlRef.current = URL.createObjectURL(recording);
-          setRecordingUrl(recordingUrlRef.current);
-          setStatus('review');
-        };
-        recorder.start();
-        setStatus('recording');
-        recordingTimeoutRef.current = window.setTimeout(() => {
-          if (recorder.state === 'recording') recorder.stop();
-        }, 5000);
-        return;
-      }
+          return;
+        }
+        if (recordingUrlRef.current) URL.revokeObjectURL(recordingUrlRef.current);
+        recordingUrlRef.current = URL.createObjectURL(recording);
+        setRecordingUrl(recordingUrlRef.current);
+        setStatus('review');
+      };
+      recorder.start();
+      setStatus('recording');
+      recordingTimeoutRef.current = window.setTimeout(() => {
+        if (recorder.state === 'recording') recorder.stop();
+      }, 5000);
+    } catch {
+      permissionStream?.getTracks().forEach((track) => track.stop());
+      setStatus('unavailable');
+    }
+  };
 
-      // Ask for microphone permission explicitly so unavailable/denied access can
-      // be explained before starting the browser's recognition service.
-      stream.getTracks().forEach((track) => track.stop());
-      setStatus('listening');
-
+  const startRecognition = (Recognition: SpeechRecognitionConstructor) => {
+    setStatus('listening');
+    try {
       const recognition = new Recognition();
       recognition.continuous = false;
       recognition.interimResults = false;
@@ -259,12 +253,28 @@ export default function WordPracticeDialog({
 
       recognition.onend = () => {
         if (!finishingRef.current) finishListening('retry');
+        recognitionRef.current = null;
+        finishingRef.current = false;
       };
 
       recognition.start();
     } catch {
-      permissionStream?.getTracks().forEach((track) => track.stop());
       finishListening('unavailable');
+    }
+  };
+
+  const tryWord = () => {
+    if (status === 'listening' || status === 'recording' || status === 'success') return;
+
+    cancelSpeech();
+    setHeard('');
+    finishingRef.current = false;
+
+    const Recognition = getRecognitionConstructor();
+    if (Recognition) {
+      startRecognition(Recognition);
+    } else {
+      void startRecording();
     }
   };
 
@@ -360,7 +370,7 @@ export default function WordPracticeDialog({
                 <span><strong>Hear the word</strong><small>Listen and say it out loud</small></span>
               </button>
 
-              {recordingSupported && status !== 'unavailable' && (
+              {(recognitionSupported || recordingSupported) && status !== 'unavailable' && (
                 <button
                   className={`practice-record ${status === 'listening' || status === 'recording' ? 'is-listening' : ''}`}
                   type="button"
