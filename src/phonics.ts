@@ -7,13 +7,13 @@ export interface PhonicsCue {
 }
 
 const LETTER_TEAMS: Record<string, Pick<PhonicsCue, 'label' | 'spoken'>> = {
-  CH: { label: 'ch', spoken: 'ch' },
+  CH: { label: 'ch', spoken: 'chuh' },
   CK: { label: 'k', spoken: 'kuh' },
   NG: { label: 'ng', spoken: 'ing' },
-  PH: { label: 'f', spoken: 'fff' },
+  PH: { label: 'f', spoken: 'fuh' },
   QU: { label: 'kw', spoken: 'kwuh' },
-  SH: { label: 'sh', spoken: 'shh' },
-  TH: { label: 'th', spoken: 'thh' },
+  SH: { label: 'sh', spoken: 'shuh' },
+  TH: { label: 'th', spoken: 'thuh' },
   WH: { label: 'w', spoken: 'wuh' },
 };
 
@@ -23,27 +23,27 @@ const LETTER_SOUNDS: Record<string, Pick<PhonicsCue, 'label' | 'spoken'>> = {
   C: { label: 'k', spoken: 'kuh' },
   D: { label: 'd', spoken: 'duh' },
   E: { label: 'eh', spoken: 'eh' },
-  F: { label: 'f', spoken: 'fff' },
+  F: { label: 'f', spoken: 'fuh' },
   G: { label: 'g', spoken: 'guh' },
   H: { label: 'h', spoken: 'huh' },
   I: { label: 'ih', spoken: 'ih' },
   J: { label: 'j', spoken: 'juh' },
   K: { label: 'k', spoken: 'kuh' },
-  L: { label: 'l', spoken: 'lll' },
-  M: { label: 'm', spoken: 'mmm' },
-  N: { label: 'n', spoken: 'nnn' },
+  L: { label: 'l', spoken: 'luh' },
+  M: { label: 'm', spoken: 'muh' },
+  N: { label: 'n', spoken: 'nuh' },
   O: { label: 'o', spoken: 'ah' },
   P: { label: 'p', spoken: 'puh' },
   Q: { label: 'kw', spoken: 'kwuh' },
-  R: { label: 'r', spoken: 'rrr' },
-  S: { label: 's', spoken: 'sss' },
+  R: { label: 'r', spoken: 'ruh' },
+  S: { label: 's', spoken: 'suh' },
   T: { label: 't', spoken: 'tuh' },
   U: { label: 'uh', spoken: 'uh' },
-  V: { label: 'v', spoken: 'vvv' },
+  V: { label: 'v', spoken: 'vuh' },
   W: { label: 'w', spoken: 'wuh' },
   X: { label: 'ks', spoken: 'ks' },
   Y: { label: 'y', spoken: 'yuh' },
-  Z: { label: 'z', spoken: 'zzz' },
+  Z: { label: 'z', spoken: 'zuh' },
 };
 
 const MAGIC_E_SOUNDS: Partial<Record<string, Pick<PhonicsCue, 'label' | 'spoken'>>> = {
@@ -80,9 +80,9 @@ export function getPhonicsCues(value: string): PhonicsCue[] {
       && MAGIC_E_SOUNDS[letter];
 
     let sound = isMagicEVowel ? MAGIC_E_SOUNDS[letter] : LETTER_SOUNDS[letter];
-    if (letter === 'C' && next && 'EIY'.includes(next)) sound = { label: 's', spoken: 'sss' };
+    if (letter === 'C' && next && 'EIY'.includes(next)) sound = { label: 's', spoken: 'suh' };
     if (letter === 'G' && next && 'EIY'.includes(next)) sound = { label: 'j', spoken: 'juh' };
-    if (letter === 'X' && index === 0) sound = { label: 'z', spoken: 'zzz' };
+    if (letter === 'X' && index === 0) sound = { label: 'z', spoken: 'zuh' };
     if (letter === 'Y' && index === word.length - 1 && word.length > 2) sound = { label: 'ee', spoken: 'ee' };
     if (letter === 'E' && index === word.length - 1 && word.length > 2) sound = { label: 'quiet e', spoken: 'quiet e' };
 
