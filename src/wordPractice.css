@@ -127,8 +127,10 @@
   line-height: 1.5;
 }
 
+.practice-message-preparing,
 .practice-message-listening,
 .practice-message-recording { color: #7857e8; font-weight: 800; }
+.practice-message-listening { color: #168764; font-size: 17px; }
 .practice-message-retry { color: #d56a38; font-weight: 700; }
 .practice-message-unavailable { color: #766d83; }
 
@@ -197,7 +199,12 @@
 
 .practice-record:disabled { cursor: wait; }
 .record-dot { color: var(--coral); text-shadow: 0 0 0 rgba(255, 79, 135, .3); }
+.practice-record.is-preparing .record-dot { animation: record-wait 1.15s ease-in-out infinite; }
 .practice-record.is-listening .record-dot { animation: record-pulse .85s ease-in-out infinite; }
+
+@keyframes record-wait {
+  50% { opacity: .35; transform: scale(.72); }
+}
 
 @keyframes record-pulse {
   50% { transform: scale(1.35); text-shadow: 0 0 18px rgba(255, 79, 135, .8); }

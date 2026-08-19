@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import './wordPractice.css';
 import { cancelSpeech, speakText } from './speech';
 
-type PracticeStatus = 'idle' | 'listening' | 'recording' | 'review' | 'retry' | 'success' | 'unavailable';
+type PracticeStatus = 'idle' | 'preparing' | 'listening' | 'recording' | 'review' | 'retry' | 'success' | 'unavailable';
 
 interface SpeechRecognitionAlternativeLike {
   transcript: string;
@@ -30,6 +30,8 @@ interface SpeechRecognitionLike {
   interimResults: boolean;
   lang: string;
   maxAlternatives: number;
+  onstart: (() => void) | null;
+  onaudiostart: (() => void) | null;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
   onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
   onend: (() => void) | null;
@@ -128,6 +130,8 @@ export default function WordPracticeDialog({
         recognition.onresult = null;
         recognition.onerror = null;
         recognition.onend = null;
+        recognition.onstart = null;
+        recognition.onaudiostart = null;
         recognition.abort();
       }
       const recorder = mediaRecorderRef.current;
@@ -170,10 +174,11 @@ export default function WordPracticeDialog({
 
   const tryWord = async () => {
     const Recognition = getRecognitionConstructor();
-    if (status === 'listening' || status === 'recording' || status === 'success') return;
+    if (status === 'preparing' || status === 'listening' || status === 'recording' || status === 'success') return;
 
     cancelSpeech();
     setHeard('');
+    setStatus('preparing');
     finishingRef.current = false;
     let permissionStream: MediaStream | null = null;
 
@@ -228,7 +233,6 @@ export default function WordPracticeDialog({
       // Ask for microphone permission explicitly so unavailable/denied access can
       // be explained before starting the browser's recognition service.
       stream.getTracks().forEach((track) => track.stop());
-      setStatus('listening');
 
       const recognition = new Recognition();
       recognition.continuous = false;
@@ -236,6 +240,17 @@ export default function WordPracticeDialog({
       recognition.lang = 'en-US';
       recognition.maxAlternatives = 5;
       recognitionRef.current = recognition;
+
+      const markListeningReady = () => {
+        if (!activeRef.current || recognitionRef.current !== recognition) return;
+        setStatus((current) => current === 'preparing' ? 'listening' : current);
+      };
+
+      // SpeechRecognition.start() can take a few seconds to activate on Android.
+      // Do not invite the user to speak until the browser confirms that its
+      // recognition service/audio capture has actually started.
+      recognition.onstart = markListeningReady;
+      recognition.onaudiostart = markListeningReady;
 
       recognition.onresult = (event) => {
         const alternatives = Array.from(
@@ -277,8 +292,10 @@ export default function WordPracticeDialog({
     onComplete(practicedByListening ? 10 : 0);
   };
 
-  const message = status === 'listening'
-    ? 'Listening… say the word now!'
+  const message = status === 'preparing'
+    ? 'Getting the microphone ready… wait for “Go!” before speaking.'
+    : status === 'listening'
+      ? `Go! Say “${word.toLowerCase()}” now.`
     : status === 'recording'
       ? 'Recording… say the word, then tap stop.'
       : status === 'review'
@@ -313,7 +330,7 @@ export default function WordPracticeDialog({
         )}
 
         <div className="practice-mascot" aria-hidden="true">
-          {status === 'success' ? '🎉' : status === 'listening' || status === 'recording' ? '👂' : '✨'}
+          {status === 'success' ? '🎉' : status === 'preparing' ? '⏳' : status === 'listening' || status === 'recording' ? '👂' : '✨'}
         </div>
         <span className="practice-eyebrow">
           {status === 'success' ? 'Super speaking!' : 'Word practice'}
@@ -362,15 +379,15 @@ export default function WordPracticeDialog({
 
               {recordingSupported && status !== 'unavailable' && (
                 <button
-                  className={`practice-record ${status === 'listening' || status === 'recording' ? 'is-listening' : ''}`}
+                  className={`practice-record ${status === 'preparing' ? 'is-preparing' : ''} ${status === 'listening' || status === 'recording' ? 'is-listening' : ''}`}
                   type="button"
                   onClick={status === 'recording' ? stopRecording : tryWord}
-                  disabled={status === 'listening'}
+                  disabled={status === 'preparing' || status === 'listening'}
                 >
                   <span className="record-dot" aria-hidden="true">●</span>
                   <span>
-                    <strong>{status === 'listening' ? 'Listening…' : status === 'recording' ? 'Stop recording' : status === 'review' ? 'Try again' : 'Try it yourself'}</strong>
-                    <small>{recognitionSupported ? `Say “${word.toLowerCase()}”` : 'Record and listen back'}</small>
+                    <strong>{status === 'preparing' ? 'Getting ready…' : status === 'listening' ? 'Go! I’m listening' : status === 'recording' ? 'Stop recording' : status === 'review' ? 'Try again' : 'Try it yourself'}</strong>
+                    <small>{status === 'preparing' ? 'Please wait before speaking' : recognitionSupported ? `Say “${word.toLowerCase()}”` : 'Record and listen back'}</small>
                   </span>
                 </button>
               )}
