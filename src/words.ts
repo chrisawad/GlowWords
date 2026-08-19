@@ -1,30 +1,49 @@
-import type { AgeGroup, GameSettings } from './types';
+import type { AgeGroup, GameSettings, WordEntry } from './types';
 
-export const WORD_BANKS: Record<AgeGroup, string[]> = {
+function entry(word: string, ...acceptedTranscriptions: string[]): WordEntry {
+  return { word, acceptedTranscriptions: [word, ...acceptedTranscriptions] };
+}
+
+export const WORD_BANKS: Record<AgeGroup, WordEntry[]> = {
   '5-6': [
-    'CAT', 'DOG', 'SUN', 'MOON', 'FISH', 'BIRD', 'TREE', 'STAR', 'BOOK', 'PLAY',
-    'JUMP', 'BLUE', 'RED', 'HAT', 'CAKE', 'FROG', 'DUCK', 'MILK', 'BALL', 'RAIN',
-    'BEAR', 'LION', 'HOME', 'KIND', 'HAPPY', 'SMILE', 'GREEN', 'CLOUD', 'APPLE', 'TRAIN',
+    entry('CAT', 'CATS'), entry('DOG', 'DOGS'), entry('SUN', 'SUNS'), entry('MOON', 'MOONS'), entry('FISH', 'FISHES'),
+    entry('BIRD', 'BIRDS'), entry('TREE', 'TREES'), entry('STAR', 'STARS'), entry('BOOK', 'BOOKS'), entry('PLAY', 'PLAYS'),
+    entry('JUMP', 'JUMPS'), entry('BLUE'), entry('RED'), entry('HAT', 'HATS'), entry('CAKE', 'CAKES'),
+    entry('FROG', 'FROGS'), entry('DUCK', 'DUCKS'), entry('MILK'), entry('BALL', 'BALLS'), entry('RAIN'),
+    entry('BEAR', 'BEARS'), entry('LION', 'LIONS'), entry('HOME', 'HOMES'), entry('KIND', 'KINDS'), entry('HAPPY'),
+    entry('SMILE', 'SMILES'), entry('GREEN'), entry('CLOUD', 'CLOUDS'), entry('APPLE', 'APPLES'), entry('TRAIN', 'TRAINS'),
   ],
   '7-8': [
-    'PLANET', 'GARDEN', 'RABBIT', 'ORANGE', 'WINDOW', 'FRIEND', 'PURPLE', 'CASTLE', 'SCHOOL', 'ROCKET',
-    'PENCIL', 'TURTLE', 'JUNGLE', 'FLOWER', 'COOKIE', 'BUBBLE', 'KITTEN', 'WINTER', 'SUMMER', 'BRIDGE',
-    'MARKET', 'PIRATE', 'DRAGON', 'BRIGHT', 'DOLPHIN', 'RAINBOW', 'MONKEY', 'BUTTON', 'PICNIC', 'THUNDER',
+    entry('PLANET', 'PLANETS'), entry('GARDEN', 'GARDENS'), entry('RABBIT', 'RABBITS'), entry('ORANGE', 'ORANGES'), entry('WINDOW', 'WINDOWS'),
+    entry('FRIEND', 'FRIENDS'), entry('PURPLE'), entry('CASTLE', 'CASTLES'), entry('SCHOOL', 'SCHOOLS'), entry('ROCKET', 'ROCKETS'),
+    entry('PENCIL', 'PENCILS'), entry('TURTLE', 'TURTLES'), entry('JUNGLE', 'JUNGLES'), entry('FLOWER', 'FLOWERS'), entry('COOKIE', 'COOKIES'),
+    entry('BUBBLE', 'BUBBLES'), entry('KITTEN', 'KITTENS'), entry('WINTER', 'WINTERS'), entry('SUMMER', 'SUMMERS'), entry('BRIDGE', 'BRIDGES'),
+    entry('MARKET', 'MARKETS'), entry('PIRATE', 'PIRATES'), entry('DRAGON', 'DRAGONS'), entry('BRIGHT'), entry('DOLPHIN', 'DOLPHINS'),
+    entry('RAINBOW', 'RAINBOWS'), entry('MONKEY', 'MONKEYS'), entry('BUTTON', 'BUTTONS'), entry('PICNIC', 'PICNICS'), entry('THUNDER'),
   ],
   '9-10': [
-    'ADVENTURE', 'DINOSAUR', 'MOUNTAIN', 'TREASURE', 'CHAMPION', 'NOTEBOOK', 'BASEBALL', 'ELEPHANT', 'DISCOVER', 'HOSPITAL',
-    'LANGUAGE', 'SANDWICH', 'CALENDAR', 'VOLCANO', 'BUTTERFLY', 'FESTIVAL', 'FOOTPRINT', 'MARVELOUS', 'INVENTOR', 'TELESCOPE',
-    'KEYBOARD', 'WATERFALL', 'SQUIRREL', 'OCTOPUS', 'SURPRISE', 'COURAGE', 'JOURNEY', 'CRYSTAL', 'HARMONY', 'LIBRARY',
+    entry('ADVENTURE', 'ADVENTURES'), entry('DINOSAUR', 'DINOSAURS'), entry('MOUNTAIN', 'MOUNTAINS'), entry('TREASURE', 'TREASURES'), entry('CHAMPION', 'CHAMPIONS'),
+    entry('NOTEBOOK', 'NOTEBOOKS'), entry('BASEBALL', 'BASEBALLS'), entry('ELEPHANT', 'ELEPHANTS'), entry('DISCOVER'), entry('HOSPITAL', 'HOSPITALS'),
+    entry('LANGUAGE', 'LANGUAGES'), entry('SANDWICH', 'SANDWICHES'), entry('CALENDAR', 'CALENDARS'), entry('VOLCANO', 'VOLCANOES', 'VOLCANOS'), entry('BUTTERFLY', 'BUTTERFLIES'),
+    entry('FESTIVAL', 'FESTIVALS'), entry('FOOTPRINT', 'FOOTPRINTS'), entry('MARVELOUS'), entry('INVENTOR', 'INVENTORS'), entry('TELESCOPE', 'TELESCOPES'),
+    entry('KEYBOARD', 'KEYBOARDS'), entry('WATERFALL', 'WATERFALLS'), entry('SQUIRREL', 'SQUIRRELS'), entry('OCTOPUS', 'OCTOPUSES'), entry('SURPRISE', 'SURPRISES'),
+    entry('COURAGE'), entry('JOURNEY', 'JOURNEYS'), entry('CRYSTAL', 'CRYSTALS'), entry('HARMONY', 'HARMONIES'), entry('LIBRARY', 'LIBRARIES'),
   ],
   '11-12': [
-    'ATMOSPHERE', 'BIOLOGY', 'CONSTELLATION', 'CREATIVITY', 'EXPERIMENT', 'GEOGRAPHY', 'ILLUSION', 'KNOWLEDGE', 'LABYRINTH', 'MICROSCOPE',
-    'NUTRITION', 'OBSERVATORY', 'PHOTOGRAPH', 'QUESTION', 'RESERVOIR', 'SATELLITE', 'TECHNOLOGY', 'UNIVERSE', 'VELOCITY', 'WILDERNESS',
-    'ARCHITECT', 'ECOSYSTEM', 'FRACTION', 'HERITAGE', 'JOURNAL', 'MAGNETIC', 'POLLINATE', 'SYMMETRY', 'TRIANGLE', 'VOLUNTEER',
+    entry('ATMOSPHERE', 'ATMOSPHERES'), entry('BIOLOGY', 'BIOLOGIES'), entry('CONSTELLATION', 'CONSTELLATIONS'), entry('CREATIVITY', 'CREATIVITIES'), entry('EXPERIMENT', 'EXPERIMENTS'),
+    entry('GEOGRAPHY', 'GEOGRAPHIES'), entry('ILLUSION', 'ILLUSIONS'), entry('KNOWLEDGE'), entry('LABYRINTH', 'LABYRINTHS'), entry('MICROSCOPE', 'MICROSCOPES'),
+    entry('NUTRITION'), entry('OBSERVATORY', 'OBSERVATORIES'), entry('PHOTOGRAPH', 'PHOTOGRAPHS'), entry('QUESTION', 'QUESTIONS'), entry('RESERVOIR', 'RESERVOIRS'),
+    entry('SATELLITE', 'SATELLITES'), entry('TECHNOLOGY', 'TECHNOLOGIES'), entry('UNIVERSE', 'UNIVERSES'), entry('VELOCITY', 'VELOCITIES'), entry('WILDERNESS', 'WILDERNESSES'),
+    entry('ARCHITECT', 'ARCHITECTS'), entry('ECOSYSTEM', 'ECOSYSTEMS'), entry('FRACTION', 'FRACTIONS'), entry('HERITAGE', 'HERITAGES'), entry('JOURNAL', 'JOURNALS'),
+    entry('MAGNETIC'), entry('POLLINATE'), entry('SYMMETRY', 'SYMMETRIES'), entry('TRIANGLE', 'TRIANGLES'), entry('VOLUNTEER', 'VOLUNTEERS'),
   ],
   '13+': [
-    'ALGORITHM', 'BIODIVERSITY', 'CHRONOLOGY', 'DEMOCRACY', 'ENTREPRENEUR', 'FASCINATING', 'GRAVITATION', 'HYPOTHESIS', 'IMAGINATION', 'JOURNALISM',
-    'KALEIDOSCOPE', 'LITERATURE', 'METAMORPHOSIS', 'NEUROSCIENCE', 'OPPORTUNITY', 'PHILOSOPHY', 'QUANTITATIVE', 'RENAISSANCE', 'SUSTAINABLE', 'THERMODYNAMICS',
-    'UNDERSTANDING', 'VULNERABILITY', 'WAVELENGTH', 'EXPLORATION', 'PERSEVERANCE', 'ARCHAEOLOGY', 'CIRCUMFERENCE', 'EQUILIBRIUM', 'INNOVATION', 'PERSPECTIVE',
+    entry('ALGORITHM', 'ALGORITHMS'), entry('BIODIVERSITY', 'BIODIVERSITIES'), entry('CHRONOLOGY', 'CHRONOLOGIES'), entry('DEMOCRACY', 'DEMOCRACIES'), entry('ENTREPRENEUR', 'ENTREPRENEURS'),
+    entry('FASCINATING'), entry('GRAVITATION', 'GRAVITATIONS'), entry('HYPOTHESIS', 'HYPOTHESES'), entry('IMAGINATION', 'IMAGINATIONS'), entry('JOURNALISM'),
+    entry('KALEIDOSCOPE', 'KALEIDOSCOPES'), entry('LITERATURE', 'LITERATURES'), entry('METAMORPHOSIS', 'METAMORPHOSES'), entry('NEUROSCIENCE', 'NEUROSCIENCES'), entry('OPPORTUNITY', 'OPPORTUNITIES'),
+    entry('PHILOSOPHY', 'PHILOSOPHIES'), entry('QUANTITATIVE'), entry('RENAISSANCE', 'RENAISSANCES'), entry('SUSTAINABLE'), entry('THERMODYNAMICS'),
+    entry('UNDERSTANDING', 'UNDERSTANDINGS'), entry('VULNERABILITY', 'VULNERABILITIES'), entry('WAVELENGTH', 'WAVELENGTHS'), entry('EXPLORATION', 'EXPLORATIONS'), entry('PERSEVERANCE', 'PERSEVERANCES'),
+    entry('ARCHAEOLOGY', 'ARCHAEOLOGIES'), entry('CIRCUMFERENCE', 'CIRCUMFERENCES'), entry('EQUILIBRIUM', 'EQUILIBRIUMS', 'EQUILIBRIA'), entry('INNOVATION', 'INNOVATIONS'), entry('PERSPECTIVE', 'PERSPECTIVES'),
   ],
 };
 
@@ -39,19 +58,50 @@ function shuffle<T>(items: T[]): T[] {
   return result;
 }
 
-function cleanWords(words: unknown, maxLength: number): string[] {
+function cleanText(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z]/g, '');
+}
+
+function cleanWords(words: unknown, maxLength: number): WordEntry[] {
   if (!Array.isArray(words)) return [];
-  return [...new Set(words
-    .filter((word): word is string => typeof word === 'string')
-    .map((word) => word.toUpperCase().replace(/[^A-Z]/g, ''))
-    .filter((word) => word.length >= 3 && word.length <= maxLength))];
+  const cleaned = new Map<string, WordEntry>();
+
+  words.forEach((value) => {
+    const rawWord = typeof value === 'string'
+      ? value
+      : value && typeof value === 'object' && 'word' in value
+        ? (value as { word?: unknown }).word
+        : null;
+    if (typeof rawWord !== 'string') return;
+
+    const word = cleanText(rawWord);
+    if (word.length < 3 || word.length > maxLength) return;
+
+    const rawAccepted = typeof value === 'object' && value && 'acceptedTranscriptions' in value
+      ? (value as { acceptedTranscriptions?: unknown }).acceptedTranscriptions
+      : [];
+    const acceptedTranscriptions = [
+      word,
+      ...(Array.isArray(rawAccepted) ? rawAccepted : [])
+        .filter((transcription): transcription is string => typeof transcription === 'string')
+        .map(cleanText)
+        .filter(Boolean),
+    ];
+    const existing = cleaned.get(word)?.acceptedTranscriptions ?? [];
+    cleaned.set(word, {
+      word,
+      acceptedTranscriptions: [...new Set([...existing, ...acceptedTranscriptions])],
+    });
+  });
+
+  return [...cleaned.values()];
 }
 
 /**
  * Server-ready word source. The game first asks /api/words and gracefully uses
  * the bundled age-level vocabulary when that endpoint is not available yet.
  */
-export async function getWords(settings: GameSettings): Promise<{ words: string[]; source: 'server' | 'offline' }> {
+export async function getWords(settings: GameSettings): Promise<{ words: WordEntry[]; source: 'server' | 'offline' }> {
   const query = new URLSearchParams({
     age: settings.ageGroup,
     gridSize: String(settings.gridSize),

@@ -51,13 +51,32 @@ The client is ready to use a remote word source. It requests:
 GET /api/words?age=7-8&gridSize=10&count=8
 ```
 
-The service may return either a JSON array or an object:
+The service may return either a JSON array or an object. Each word entry includes
+the word displayed in the game and the complete list of microphone transcripts
+that should count as a match:
 
 ```json
-{ "words": ["PLANET", "GARDEN", "RABBIT"] }
+{
+  "words": [
+    {
+      "word": "APPLE",
+      "acceptedTranscriptions": ["APPLE", "APPLES"]
+    },
+    {
+      "word": "BUTTERFLY",
+      "acceptedTranscriptions": ["BUTTERFLY", "BUTTERFLIES"]
+    }
+  ]
+}
 ```
 
-Words are sanitized, deduplicated, and checked against the selected grid size. If the request fails, times out after 2.5 seconds, or returns too few usable words, the client automatically draws from the bundled age-level word banks in `src/words.ts`.
+For backward compatibility, string entries such as `"APPLE"` are also accepted
+and use only that exact transcription. The displayed word is always added to its
+accepted transcription list if the service omits it. Words and transcriptions
+are sanitized and deduplicated, and displayed words are checked against the
+selected grid size. If the request fails, times out after 2.5 seconds, or returns
+too few usable words, the client automatically draws from the bundled age-level
+word dictionaries in `src/words.ts`.
 
 ## Input support
 

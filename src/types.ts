@@ -12,8 +12,12 @@ export interface Position {
   col: number;
 }
 
-export interface PlacedWord {
+export interface WordEntry {
   word: string;
+  acceptedTranscriptions: string[];
+}
+
+export interface PlacedWord extends WordEntry {
   cells: Position[];
 }
 
