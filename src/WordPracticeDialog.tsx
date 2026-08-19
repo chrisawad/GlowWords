@@ -62,6 +62,45 @@ function normalizeWord(value: string): string {
   return value.toUpperCase().replace(/[^A-Z]/g, '');
 }
 
+const IRREGULAR_PLURALS: Record<string, string[]> = {
+  CHILD: ['CHILDREN'],
+  FOOT: ['FEET'],
+  GOOSE: ['GEESE'],
+  MAN: ['MEN'],
+  MOUSE: ['MICE'],
+  OX: ['OXEN'],
+  PERSON: ['PEOPLE'],
+  TOOTH: ['TEETH'],
+  WOMAN: ['WOMEN'],
+};
+
+function getAcceptedSpokenForms(value: string): Set<string> {
+  const word = normalizeWord(value);
+  const forms = new Set([word, ...(IRREGULAR_PLURALS[word] ?? [])]);
+
+  if (/IS$/.test(word)) {
+    forms.add(`${word.slice(0, -2)}ES`);
+  } else if (/[^AEIOU]Y$/.test(word)) {
+    forms.add(`${word.slice(0, -1)}IES`);
+  } else if (/(S|X|Z|CH|SH)$/.test(word)) {
+    forms.add(`${word}ES`);
+  } else if (/FE$/.test(word)) {
+    forms.add(`${word.slice(0, -2)}VES`);
+    forms.add(`${word}S`);
+  } else if (/F$/.test(word)) {
+    forms.add(`${word.slice(0, -1)}VES`);
+    forms.add(`${word}S`);
+  } else if (/[^AEIOU]O$/.test(word)) {
+    // English has both forms (volcanoes, pianos), so accept either ending.
+    forms.add(`${word}ES`);
+    forms.add(`${word}S`);
+  } else {
+    forms.add(`${word}S`);
+  }
+
+  return forms;
+}
+
 function getRecognitionConstructor(): SpeechRecognitionConstructor | null {
   if (typeof window === 'undefined') return null;
   return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
@@ -240,6 +279,7 @@ export default function WordPracticeDialog({
       recognition.lang = 'en-US';
       recognition.maxAlternatives = 5;
       recognitionRef.current = recognition;
+      const acceptedSpokenForms = getAcceptedSpokenForms(word);
 
       const markListeningReady = () => {
         if (!activeRef.current || recognitionRef.current !== recognition) return;
@@ -257,7 +297,7 @@ export default function WordPracticeDialog({
           { length: event.results[0]?.length ?? 0 },
           (_, index) => event.results[0][index]?.transcript ?? '',
         ).filter(Boolean);
-        const match = alternatives.some((alternative) => normalizeWord(alternative) === normalizeWord(word));
+        const match = alternatives.some((alternative) => acceptedSpokenForms.has(normalizeWord(alternative)));
         setHeard(alternatives[0] ?? '');
         finishingRef.current = true;
         if (match) {
