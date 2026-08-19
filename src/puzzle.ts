@@ -1,4 +1,4 @@
-import type { Position, Puzzle } from './types';
+import type { Position, Puzzle, WordEntry } from './types';
 
 const DIRECTIONS = [
   [0, 1], [1, 0], [1, 1], [1, -1],
@@ -33,15 +33,15 @@ function tryPlace(grid: string[][], word: string): Position[] | null {
   return null;
 }
 
-export function createPuzzle(words: string[], size: number): Puzzle {
+export function createPuzzle(words: WordEntry[], size: number): Puzzle {
   // Rebuild a few times when a dense randomized layout gets unlucky.
   let best: Puzzle = { grid: [], placedWords: [] };
   for (let boardAttempt = 0; boardAttempt < 20; boardAttempt += 1) {
     const grid = Array.from({ length: size }, () => Array<string>(size).fill(''));
     const placedWords = [...words]
-      .sort((a, b) => b.length - a.length)
-      .map((word) => ({ word, cells: tryPlace(grid, word) }))
-      .filter((entry): entry is { word: string; cells: Position[] } => Boolean(entry.cells));
+      .sort((a, b) => b.word.length - a.word.length)
+      .map((entry) => ({ ...entry, cells: tryPlace(grid, entry.word) }))
+      .filter((entry): entry is WordEntry & { cells: Position[] } => Boolean(entry.cells));
 
     if (placedWords.length > best.placedWords.length) best = { grid, placedWords };
     if (placedWords.length === words.length) break;

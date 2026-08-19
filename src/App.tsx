@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import { cellKey, cellsBetween, createPuzzle } from './puzzle';
 import { getWords } from './words';
-import type { AgeGroup, FoundWord, GameSettings, Position, Puzzle } from './types';
+import type { AgeGroup, FoundWord, GameSettings, PlacedWord, Position, Puzzle } from './types';
 import WordPracticeDialog from './WordPracticeDialog';
 import { cancelSpeech, speakParts } from './speech';
 
@@ -249,7 +249,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
   const [ended, setEnded] = useState(false);
   const [muted, setMuted] = useState(false);
   const [round, setRound] = useState(0);
-  const [practiceWord, setPracticeWord] = useState<string | null>(null);
+  const [practiceWord, setPracticeWord] = useState<PlacedWord | null>(null);
   const [trailExpanded, setTrailExpanded] = useState(false);
 
   useEffect(() => {
@@ -299,7 +299,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
     setFound((current) => current.some((item) => item.word === word.word) ? current : [...current, word]);
   };
 
-  const openPractice = (word: string) => {
+  const openPractice = (word: PlacedWord) => {
     cancelSpeech();
     setPracticeWord(word);
   };
@@ -353,7 +353,8 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
           </div>
           <div className="progress-track"><i style={{ width: `${progress * 100}%` }} /></div>
           <div className="word-chips" id="word-trail-list">
-            {puzzle.placedWords.map(({ word }, index) => {
+            {puzzle.placedWords.map((placedWord, index) => {
+              const { word } = placedWord;
               const match = found.find((item) => item.word === word);
               const chipStyle = {
                 '--chip-hue': (index * 47 + 270) % 360,
@@ -365,7 +366,7 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
                   type="button"
                   className={match ? 'found-word' : ''}
                   style={chipStyle}
-                  onClick={() => openPractice(word)}
+                  onClick={() => openPractice(placedWord)}
                   aria-label={`Pause and practice ${word.toLowerCase()}`}
                   title={`Practice ${word.toLowerCase()}`}
                 >
@@ -386,7 +387,8 @@ function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () =
 
       {practiceWord && (
         <WordPracticeDialog
-          word={practiceWord}
+          word={practiceWord.word}
+          acceptedTranscriptions={practiceWord.acceptedTranscriptions}
           muted={muted}
           onComplete={finishPractice}
         />
