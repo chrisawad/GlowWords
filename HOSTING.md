@@ -1,56 +1,36 @@
-# Hosting applications with Nginx in this container
+# Local preview with Docker
 
-This workspace runs inside a Docker container managed by an external Compose
-deployment. Nginx is already running and is the supported way to expose a built
-application for testing.
+Run these commands from the repository root in your terminal. Docker with Docker Compose must be installed, running, and accessible from that terminal. If either is missing, set it up for your environment before continuing. Node.js, pnpm, and nginx run inside the Docker images; they do not need to be installed on the host.
 
-## Port mapping
-
-| Protocol | Container listener | Host-port environment variable | Default |
-| --- | ---: | --- | ---: |
-| HTTP | `80` | `NGINX_HOST_HTTP_PORT` | `8080` |
-| HTTPS | `443` | `NGINX_HOST_HTTPS_PORT` | `4443` |
-
-Container ports are useful for internal diagnostics only. Before reporting a
-URL, read the current host ports from the environment:
-
-```bash
-http_port="${NGINX_HOST_HTTP_PORT:-8080}"
-https_port="${NGINX_HOST_HTTPS_PORT:-4443}"
-printf 'HTTP:  http://127.0.0.1:%s\n' "$http_port"
-printf 'HTTPS: https://127.0.0.1:%s\n' "$https_port"
-```
-
-Always provide the resolved IPv4 host URLs to the user. Do not substitute
-`localhost`, because it can resolve to IPv6 and cause connection delays. Never
-use container ports `80` or `443` in a user-facing URL. The default HTTPS
-certificate is self-signed, so a browser may display a certificate warning.
-
-## Web root
-
-Nginx serves files from the directory stored in `NGINX_WEB_ROOT`:
+## Build and start
 
 ```text
-/usr/share/nginx/html
+docker compose config
+docker compose build app
+docker compose up -d app
 ```
 
-That is the default value. Use the environment variable's current value if the
-external Compose deployment overrides it.
+The Dockerfile installs the locked application dependencies and runs the production build in its Node.js stage. Its runtime stage serves `dist/client` with nginx. Rebuild after changing source files to update the preview.
 
-## Publishing workflow
+## Verify
 
-1. Build the application using its production build command.
-2. Identify the generated static distribution directory, commonly `dist`,
-   `build`, `out`, or `public`.
-3. Replace the contents of `NGINX_WEB_ROOT` with the contents of that generated
-   distribution. Copy the distribution's contents, not the containing
-   directory, so its `index.html` is at the web root.
-4. Validate the nginx configuration with `nginx -t`.
-5. Test HTTP internally through nginx on `http://127.0.0.1:80`. Test HTTPS on
-   `https://127.0.0.1:443` when relevant, allowing for the self-signed
-   certificate.
-6. Read `NGINX_HOST_HTTP_PORT` and `NGINX_HOST_HTTPS_PORT`, then tell the user
-   to open the corresponding `127.0.0.1` URL.
+```text
+docker compose ps
+docker compose logs --tail 100 app
+docker compose exec -T app nginx -t
+docker compose port app 80
+```
 
-Do not leave a framework development server as the user-facing test endpoint
-when a static distribution can be hosted by nginx.
+Use the host port reported by the last command to construct `http://127.0.0.1:<published-port>`. Check that URL with an HTTP client available in your environment, then verify the JavaScript and CSS URLs referenced by the returned HTML also respond successfully. Share the verified URL for browser testing. If Docker runs on a remote machine, use a reachable address or port forwarding appropriate to that environment.
+
+The checked-in Compose file maps host port 8080 to container port 80, but always inspect the running mapping before sharing a URL. HTTPS is not configured. No host nginx service or `NGINX_*` environment variables are needed.
+
+## Stop the preview
+
+Leave the preview running when the user needs to test. When it is no longer needed, stop only this project's app:
+
+```text
+docker compose stop app
+```
+
+Use Docker previews for local testing and unmerged work. See `README.md` for the GitHub Pages deployment workflow.

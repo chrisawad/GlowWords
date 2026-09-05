@@ -1,73 +1,38 @@
-# Agent container environment instructions
+# GlowWords agent instructions
 
-These instructions apply to all work under `/workspaces`.
+These instructions apply to this repository.
 
-## Runtime
+## Environment
 
-- You are working as `root` inside a Docker container sandbox.
-- Root's home directory is `/root`. Interactive SSH login shells change into
-  `/workspaces` after login; `/workspaces` is the working directory, not the
-  home directory.
-- The container is created and managed by an external `docker-compose.yml`.
-- Treat the host, Docker daemon, Compose lifecycle, port publishing, and volume
-  configuration as external infrastructure. Do not assume the Compose file is
-  available inside the container.
-- Nginx is already running in the container. Do not start a replacement web
-  server for application testing when the application can be built and served
-  as static files.
+- Do not assume a particular operating system, shell, checkout path, or agent runtime. Inspect the current environment and adapt commands as needed.
+- Docker and Docker Compose provide the build and preview environment. Use the repository's `Dockerfile` and `docker-compose.yml`.
+- Do not assume nginx or any other web server is installed or running on the host. The current Dockerfile includes nginx inside the runtime image.
 
-## Tool installation
+## Dependencies and installation
 
-- Inspect the available toolchain before starting project work.
-- If a required tool or dependency is missing, tell the user exactly what needs
-  to be installed, why it is required, and whether the installation is
-  system-wide or project-local.
-- Ask the user for explicit permission before installing any missing tool.
-- After the user approves, install the required tool and continue the original
-  task without waiting for another instruction.
-- Prefer project-local dependencies over global or system-wide installations
-  when practical.
-- Explain that tools installed in /workspaces will survive a container recreate, but anything installed elsewhere may be lost if the container is recreated.
+- Inspect the available tools before starting work. For the normal build and verification workflow, the host needs Git and a working Docker installation with Docker Compose; host Node.js, pnpm, and nginx are not required.
+- If Docker or Docker Compose is missing or unavailable, tell the user it is required and help them set it up for their environment. Ask for permission before installing it; if it is already installed, check that the Docker daemon is running and accessible.
+- Install build tools and application dependencies inside Docker. Put required tooling changes in the Dockerfile and application dependencies in the package manifest and lockfile so the environment can be reproduced.
+- Dependency installation already declared in the Dockerfile is part of an authorized Docker build and does not require a separate permission request.
+- Ask for explicit permission before installing software on the host, including project-local dependencies outside Docker. Explain what is needed, why Docker cannot satisfy the need, and whether the installation is project-local or system-wide. After approval, install it and continue the original task.
+- Do not install host dependencies merely because `node_modules` is absent.
+- Container changes are disposable. Record required installations in the Dockerfile rather than relying on manual changes to a running container.
 
-## User-facing ports
+## Build and verify with Docker
 
-- Nginx HTTP listens on port `80` inside the container. Its externally
-  published host port is stored in `NGINX_HOST_HTTP_PORT` and defaults to
-  `8080`.
-- Nginx HTTPS listens on port `443` inside the container. Its externally
-  published host port is stored in `NGINX_HOST_HTTPS_PORT` and defaults to
-  `4443`.
-- Before giving the user a URL, read the current values from the environment.
-  Do not assume the defaults:
+- Use `docker compose config` to validate the configuration, then `docker compose build app` to run the production build inside Docker.
+- If the build fails, fix the underlying project or Docker configuration and rebuild. Do not switch to host dependency installation as a workaround.
+- Start the built app with `docker compose up -d app` for testing.
+- Verify the service with `docker compose ps` and inspect `docker compose logs --tail 100 app` for startup failures.
+- For the current nginx runtime, validate its configuration with `docker compose exec -T app nginx -t`.
+- Check the published HTTP endpoint from the host, including the generated JavaScript and CSS assets. Run relevant automated checks inside Docker when the task requires them. A successful image build alone does not verify that the app is reachable.
+- Read `HOSTING.md` for the local preview workflow. Leave a requested test preview running and provide its verified URL.
+- Scope Docker operations to this project. Do not stop unrelated containers, prune Docker resources, or delete volumes as routine troubleshooting.
 
-  ```bash
-  http_port="${NGINX_HOST_HTTP_PORT:-8080}"
-  https_port="${NGINX_HOST_HTTPS_PORT:-4443}"
-  ```
+## Preview URLs and deployment
 
-- Always construct user-facing URLs as
-  `http://127.0.0.1:${NGINX_HOST_HTTP_PORT}` and
-  `https://127.0.0.1:${NGINX_HOST_HTTPS_PORT}`, using the resolved values
-  rather than printing the variable names literally.
-- Use `127.0.0.1`, not `localhost`, in user-facing links to avoid IPv6
-  resolution and connection delays.
-- Never tell the user to open container ports `80` or `443`. Those ports are
-  valid only for checks performed from inside the container.
-
-## Hosting applications
-
-- When serving an application for testing, build its production distribution
-  and publish that distribution through nginx.
-- Copy the built distribution into the directory identified by
-  `NGINX_WEB_ROOT`. Its default value is `/usr/share/nginx/html`.
-- Do not direct the user to a framework development-server port. Report the
-  nginx host URLs using the current `NGINX_HOST_HTTP_PORT` and
-  `NGINX_HOST_HTTPS_PORT` values.
-- Read `/workspaces/HOSTING.md` for the publishing and validation workflow.
-
-## Sites deployments
-
-- Use the locally installed nginx for previews of unmerged changes, feature
-  branches, and pull requests.
-- Use Sites only for changes that have already been merged through a pull
-  request. Never publish unmerged pull request changes to Sites.
+- Discover the actual published port with `docker compose port app 80` after startup. Use the current Compose configuration, not stale environment variables or assumed port mappings.
+- Give the user `http://127.0.0.1:<published-port>`, substituting the verified host port. Do not give a container-only address or internal listener port.
+- Only offer HTTPS if it is actually configured and verified. The current Compose configuration provides HTTP only.
+- Use the Docker preview for local testing, feature branches, and pull requests.
+- GitHub Pages deployment is managed by `.github/workflows/deploy-pages.yml`; keep its static build compatible with the Docker build.
