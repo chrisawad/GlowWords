@@ -220,7 +220,8 @@ button { -webkit-tap-highlight-color: transparent; }
   .result-card { padding-inline: 23px; }
 }
 
-@media (orientation: landscape) and (pointer: coarse) {
+/* Use a sidebar once there is room for it, or on short landscape screens. */
+@media (min-width: 521px), (orientation: landscape) {
   .game-shell { padding-bottom: max(4px, env(safe-area-inset-bottom)); }
   .game-header { display: none; }
   .icon-button { width: 32px; }
@@ -252,6 +253,31 @@ button { -webkit-tap-highlight-color: transparent; }
   .trail-expanded .trail-brand { gap: 7px; justify-content: flex-start; }.trail-expanded .trail-brand strong { display: block; }
   .trail-expanded .mission-heading { display: flex; margin-top: 8px; }
   .trail-expanded .progress-track { display: block; }
+}
+
+/* Roomier controls and a viewport-sized board on desktop; short windows retain the compact layout. */
+@media (min-width: 900px) and (min-height: 600px) and (pointer: fine) {
+  .game-shell { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+  .game-content { gap: 24px; width: min(1440px, calc(100% - 48px)); margin-top: max(24px, env(safe-area-inset-top)); }
+  .mission-card { width: clamp(220px, 22vw, 280px); max-width: none; padding: 18px; border-radius: 28px 28px 28px 9px; }
+  .trail-header { gap: 14px; }
+  .trail-header-actions { grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 10px; }
+  .trail-header-actions .icon-button { width: 40px; border-radius: 13px; font-size: 20px; }
+  .trail-brand span { width: 36px; font-size: 20px; }
+  .trail-brand strong { font-size: 18px; }
+  .trail-header .timer { min-height: 48px; padding: 8px 13px; }
+  .trail-header .timer strong { font-size: 24px; }
+  .trail-header .timer span { display: inline; }
+  .trail-toggle { min-height: 44px; margin-top: 14px; padding: 8px 12px; font-size: 14px; }
+  .word-chips { gap: 8px; margin-top: 12px; }
+  .word-chips > button { min-height: 42px; padding: 8px 12px; font-size: 14px; }
+  .board-stage { place-items: center; }
+  .letter-board { width: min(100%, 960px); width: min(100cqw, 100cqh, 960px); padding: clamp(11px, 1.5vw, 18px); border-radius: 30px 30px 30px 10px; }
+  .letter-cell span { font-size: clamp(9px, calc(44cqi / var(--grid-size)), 36px); }
+  .trail-expanded .mission-card { width: min(360px, 32vw); padding: 18px; }
+  .trail-expanded .mission-heading { margin-top: 16px; gap: 12px; }
+  .trail-expanded .mission-heading h1 { font-size: 24px; }
+  .trail-expanded .progress-track { flex-shrink: 0; margin: 14px 0 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
