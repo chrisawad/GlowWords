@@ -2,36 +2,54 @@
 
 A colorful, touch-first word search game for mobile and desktop browsers. Players choose an age level and tune the timer, word count, and grid size before racing to find hidden words.
 
-## Run locally
+## Run with Docker
 
-On Windows, the included launcher automatically finds Codex's bundled Node.js
-and pnpm, so no global installation or PowerShell policy change is required:
+Install Docker with Docker Compose for your environment, then make sure the
+Docker daemon is running and accessible from your terminal. No host installation
+of Node.js, pnpm, or nginx is needed.
 
-```bat
-dev.cmd
+From the repository root, build and start the app:
+
+```text
+docker compose up --build -d app
+docker compose port app 80
 ```
 
-The PowerShell launcher is also available if local scripts are enabled:
+The checked-in configuration publishes port 8080. With that mapping, open
+[Glow Words](http://127.0.0.1:8080). If your configuration uses a different port,
+use the host port reported by the second command. For a remote Docker host, use
+its reachable address or a forwarded port.
 
-```powershell
-.\dev.ps1
+Docker installs the locked dependencies, compiles TypeScript, and builds the
+production app. The runtime container serves the generated `dist/client` files
+with nginx. Source files are copied into the image, so rerun the build-and-start
+command after making changes.
+
+## Build and verify
+
+To validate the configuration and build without starting the app:
+
+```text
+docker compose config
+docker compose build app
 ```
 
-The development server binds to `0.0.0.0`, allowing other devices on the same
-network to connect. Vite prints the network URL when it starts. If Windows asks,
-allow Node.js through the firewall on private networks.
+Once the app is running, check its status, logs, and server configuration:
 
-With Node.js and pnpm already installed globally, the standard commands are:
-
-```bash
-pnpm install
-pnpm dev
+```text
+docker compose ps
+docker compose logs --tail 100 app
+docker compose exec -T app nginx -t
 ```
 
-Create an optimized build with `pnpm build`.
+Open the preview and try the game. See [HOSTING.md](HOSTING.md) for HTTP and
+asset verification. The default preview uses HTTP; HTTPS is not configured.
 
-The build also emits a Cloudflare Worker-compatible Sites package under
-`dist/`, including SPA routing and request-aware social preview metadata.
+To stop the app:
+
+```text
+docker compose stop app
+```
 
 ## Deploy to GitHub Pages
 
