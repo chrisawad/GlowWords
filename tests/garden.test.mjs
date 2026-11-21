@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { after, before, test } from 'node:test';
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -365,6 +366,14 @@ test('Pages-scoped manifest, artwork, fonts, sound and puzzle load offline', asy
   assert.ok(cache.every(url => url.startsWith(base)));
   for (const ext of ['.js', '.css', '.woff2', '.wav', '.webp', '.png', '.webmanifest']) assert.ok(cache.some(url => url.endsWith(ext)), ext);
   const manifest = await page.evaluate(async () => (await fetch(document.querySelector('link[rel=manifest]').href)).json());
+  const launcherIcon = manifest.icons.find(icon => icon.purpose === 'maskable');
+  assert.ok(launcherIcon, 'The home-screen launcher needs a maskable icon');
+  const launcherUrl = new URL(launcherIcon.src, base);
+  assert.ok(cache.includes(launcherUrl.href));
+  const iconResponse = await context.request.get(launcherUrl.href);
+  assert.equal(iconResponse.status(), 200);
+  const iconHash = createHash('sha256').update(await iconResponse.body()).digest('hex').slice(0, 8);
+  assert.ok(launcherUrl.pathname.endsWith(`.${iconHash}.png`), 'New icon artwork needs a new URL for installed apps');
   const protocol = await context.newCDPSession(page);
   const { appId } = await protocol.send('Page.getAppId');
   assert.equal(appId, base);

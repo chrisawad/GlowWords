@@ -12,6 +12,7 @@
   "related_applications": [{ "platform": "webapp", "url": "./manifest.webmanifest", "id": "./" }],
   "icons": [
     { "src": "icons/glow-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/glow-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "icons/glow-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/glow-maskable-512.0edf84cc.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
