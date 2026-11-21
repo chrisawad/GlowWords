@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './wordPractice.css';
+import Icon from './Icon';
 import { cancelSpeech, speakText } from './speech';
 
 type PracticeStatus = 'idle' | 'preparing' | 'listening' | 'recording' | 'review' | 'retry' | 'success' | 'unavailable';
@@ -68,16 +69,6 @@ function getRecognitionConstructor(): SpeechRecognitionConstructor | null {
   return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
 }
 
-function canRecordSpeech(): boolean {
-  return Boolean(
-    typeof window !== 'undefined'
-    && typeof navigator !== 'undefined'
-    && 'MediaRecorder' in window
-    && navigator.mediaDevices
-    && typeof navigator.mediaDevices.getUserMedia === 'function',
-  );
-}
-
 function playCelebrationSound() {
   try {
     const AudioContextClass = window.AudioContext ?? window.webkitAudioContext;
@@ -113,6 +104,7 @@ export default function WordPracticeDialog({
 }: WordPracticeDialogProps) {
   const [status, setStatus] = useState<PracticeStatus>('idle');
   const [heard, setHeard] = useState('');
+  const [micIssue, setMicIssue] = useState('');
   const [practicedByListening, setPracticedByListening] = useState(false);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -121,10 +113,13 @@ export default function WordPracticeDialog({
   const recordingTimeoutRef = useRef<number | null>(null);
   const activeRef = useRef(true);
   const finishingRef = useRef(false);
-  const recordingSupported = useMemo(canRecordSpeech, []);
-  const recognitionSupported = useMemo(() => Boolean(getRecognitionConstructor()), []);
+  const recognitionSupported = Boolean(getRecognitionConstructor());
+  const recordingSupported = typeof MediaRecorder === 'function' && typeof navigator.mediaDevices?.getUserMedia === 'function';
+  const canUseMic = window.isSecureContext && (recognitionSupported || recordingSupported);
+  const micActive = status === 'preparing' || status === 'listening' || status === 'recording';
 
   useEffect(() => {
+    activeRef.current = true;
     return () => {
       activeRef.current = false;
       const recognition = recognitionRef.current;
@@ -176,7 +171,7 @@ export default function WordPracticeDialog({
 
   const tryWord = async () => {
     const Recognition = getRecognitionConstructor();
-    if (status === 'preparing' || status === 'listening' || status === 'recording' || status === 'success') return;
+    if (!canUseMic || micActive || status === 'success') return;
 
     cancelSpeech();
     setHeard('');
@@ -185,14 +180,17 @@ export default function WordPracticeDialog({
     let permissionStream: MediaStream | null = null;
 
     try {
-      permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (navigator.mediaDevices?.getUserMedia) {
+        permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
       const stream = permissionStream;
       if (!activeRef.current) {
-        stream.getTracks().forEach((track) => track.stop());
+        stream?.getTracks().forEach((track) => track.stop());
         return;
       }
 
       if (!Recognition) {
+        if (!stream) throw new Error('Microphone unavailable');
         const chunks: Blob[] = [];
         const recorder = new MediaRecorder(stream);
         let failed = false;
@@ -234,7 +232,7 @@ export default function WordPracticeDialog({
 
       // Ask for microphone permission explicitly so unavailable/denied access can
       // be explained before starting the browser's recognition service.
-      stream.getTracks().forEach((track) => track.stop());
+      stream?.getTracks().forEach((track) => track.stop());
 
       const recognition = new Recognition();
       recognition.continuous = false;
@@ -256,6 +254,7 @@ export default function WordPracticeDialog({
       recognition.onaudiostart = markListeningReady;
 
       recognition.onresult = (event) => {
+        if (recognitionRef.current !== recognition) return;
         const alternatives = Array.from(
           { length: event.results[0]?.length ?? 0 },
           (_, index) => event.results[0][index]?.transcript ?? '',
@@ -271,17 +270,25 @@ export default function WordPracticeDialog({
       };
 
       recognition.onerror = (event) => {
+        if (recognitionRef.current !== recognition) return;
         finishingRef.current = true;
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setMicIssue('Check microphone and speech permissions in your browser, then try again.');
+        }
         finishListening(event.error === 'not-allowed' || event.error === 'service-not-allowed' ? 'unavailable' : 'retry');
       };
 
       recognition.onend = () => {
-        if (!finishingRef.current) finishListening('retry');
+        if (recognitionRef.current === recognition && !finishingRef.current) finishListening('retry');
       };
 
       recognition.start();
-    } catch {
+    } catch (error) {
       permissionStream?.getTracks().forEach((track) => track.stop());
+      if (!activeRef.current) return;
+      setMicIssue(error instanceof DOMException && error.name === 'NotAllowedError'
+        ? 'Allow microphone access in your browser, then try again.'
+        : 'Check that a microphone is connected, then try again.');
       finishListening('unavailable');
     }
   };
@@ -291,11 +298,15 @@ export default function WordPracticeDialog({
   };
 
   const returnToGame = () => {
-    if (status === 'listening' || status === 'recording' || status === 'success') return;
+    if (status === 'success') return;
     onComplete(practicedByListening ? 10 : 0);
   };
 
-  const message = status === 'preparing'
+  const message = !window.isSecureContext
+    ? 'Listen, then say the word aloud. Open Glow Words over HTTPS to use your microphone.'
+    : !canUseMic
+    ? 'Listen, then say the word aloud. This browser supports practice without a microphone.'
+    : status === 'preparing'
     ? 'Getting the microphone ready… wait for “Go!” before speaking.'
     : status === 'listening'
       ? `Go! Say “${word.toLowerCase()}” now.`
@@ -308,8 +319,8 @@ export default function WordPracticeDialog({
             ? `I heard “${heard}”. Let’s try once more!`
             : 'I didn’t catch that. Let’s try once more!'
           : status === 'unavailable'
-            ? 'The microphone isn’t available, but you can still listen and practice.'
-            : 'Tap each letter, hear the whole word, or try saying it yourself.';
+            ? micIssue || 'The microphone is unavailable. You can listen or try again.'
+            : 'Tap a letter to hear it, or practice the whole word.';
 
   return (
     <div className="practice-backdrop" role="presentation">
@@ -356,6 +367,7 @@ export default function WordPracticeDialog({
                   key={`${letter}-${index}`}
                   type="button"
                   onClick={() => readLetter(letter)}
+                  disabled={micActive}
                   aria-label={`Hear the letter ${letter}`}
                 >
                   {letter}
@@ -375,25 +387,24 @@ export default function WordPracticeDialog({
             )}
 
             <div className="practice-actions">
-              <button className="practice-listen" type="button" onClick={readWord}>
+              <button className="practice-listen" type="button" onClick={readWord} disabled={micActive}>
                 <span aria-hidden="true">🔊</span>
                 <span><strong>Hear the word</strong><small>Listen and say it out loud</small></span>
               </button>
 
-              {recordingSupported && status !== 'unavailable' && (
                 <button
                   className={`practice-record ${status === 'preparing' ? 'is-preparing' : ''} ${status === 'listening' || status === 'recording' ? 'is-listening' : ''}`}
                   type="button"
                   onClick={status === 'recording' ? stopRecording : tryWord}
-                  disabled={status === 'preparing' || status === 'listening'}
+                  disabled={!canUseMic || status === 'preparing' || status === 'listening'}
+                  aria-describedby="practice-message"
                 >
-                  <span className="record-dot" aria-hidden="true">●</span>
+                  <span className="record-dot" aria-hidden="true"><Icon name="mic" /></span>
                   <span>
-                    <strong>{status === 'preparing' ? 'Getting ready…' : status === 'listening' ? 'Go! I’m listening' : status === 'recording' ? 'Stop recording' : status === 'review' ? 'Try again' : 'Try it yourself'}</strong>
-                    <small>{status === 'preparing' ? 'Please wait before speaking' : recognitionSupported ? `Say “${word.toLowerCase()}”` : 'Record and listen back'}</small>
+                    <strong>{status === 'preparing' ? 'Getting ready…' : status === 'listening' ? 'Go! I’m listening' : status === 'recording' ? 'Stop recording' : 'Say the word'}</strong>
+                    <small>{!window.isSecureContext ? 'Microphone needs HTTPS' : !canUseMic ? 'Microphone unavailable' : status === 'preparing' ? 'Please wait before speaking' : recognitionSupported ? `Say “${word.toLowerCase()}”` : 'Record and listen back'}</small>
                   </span>
                 </button>
-              )}
             </div>
 
             <button className="practice-return" type="button" onClick={returnToGame}>

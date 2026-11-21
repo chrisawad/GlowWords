@@ -1,420 +1,219 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
-import { cellKey, cellsBetween, createPuzzle } from './puzzle';
-import { getWords } from './words';
-import type { AgeGroup, FoundWord, GameSettings, PlacedWord, Position, Puzzle } from './types';
+import type { CSSProperties } from 'react';
+import Board from './Board';
+import Icon from './Icon';
+import InstallDialog, { useInstall } from './InstallDialog';
+import Modal from './Modal';
+import SettingsDialog, { readBoardSide, readMuted, readSettings, saveBoardSide, saveMuted, saveSettings } from './SettingsDialog';
 import WordPracticeDialog from './WordPracticeDialog';
-import { cancelSpeech, speakParts } from './speech';
+import { createWinCelebration } from './celebration';
+import { createPuzzle } from './puzzle';
+import { cancelSpeech, speakAndSpellWord } from './speech';
+import type { BoardSide, FoundWord, GameSettings, PlacedWord, Puzzle } from './types';
+import { createWinAudio } from './winAudio';
+import { getWords } from './words';
 
-const AGE_OPTIONS: { id: AgeGroup; label: string; level: string; emoji: string; defaults: Omit<GameSettings, 'ageGroup'> }[] = [
-  { id: '5-6', label: '5–6', level: 'Early reader', emoji: '🌱', defaults: { duration: 180, wordCount: 6, gridSize: 8 } },
-  { id: '7-8', label: '7–8', level: 'Word explorer', emoji: '🐛', defaults: { duration: 180, wordCount: 8, gridSize: 10 } },
-  { id: '9-10', label: '9–10', level: 'Puzzle pro', emoji: '🪁', defaults: { duration: 240, wordCount: 10, gridSize: 12 } },
-  { id: '11-12', label: '11–12', level: 'Brain booster', emoji: '🚀', defaults: { duration: 300, wordCount: 12, gridSize: 14 } },
-  { id: '13+', label: '13+', level: 'Word master', emoji: '✨', defaults: { duration: 360, wordCount: 14, gridSize: 16 } },
-];
-
-const COLORS = ['#ff4f87', '#11c9a5', '#ffb000', '#7957ff', '#00a8e8', '#ef5ad7', '#75c92f'];
-const DURATION_OPTIONS = [60, 120, 180, 240, 300, 360];
-const GRID_OPTIONS = [8, 10, 12, 14, 16];
-const WORD_OPTIONS = [6, 8, 10, 12, 14];
-
-function formatTime(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
+function formatTime(seconds: number) {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 function playEndTone() {
   try {
-    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const context = new AudioContextClass();
+    const Audio = window.AudioContext ?? window.webkitAudioContext;
+    if (!Audio) return;
+    const context = new Audio();
     const oscillator = context.createOscillator();
     const gain = context.createGain();
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.type = 'sine';
+    oscillator.connect(gain).connect(context.destination);
     oscillator.frequency.setValueAtTime(330, context.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(220, context.currentTime + 0.16);
-    gain.gain.setValueAtTime(0.12, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.22);
+    oscillator.frequency.exponentialRampToValueAtTime(220, context.currentTime + .16);
+    gain.gain.setValueAtTime(.12, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + .22);
+    oscillator.onended = () => { void context.close(); };
     oscillator.start();
-    oscillator.stop(context.currentTime + 0.23);
-  } catch {
-    // Audio is decorative; gameplay never depends on it.
-  }
+    oscillator.stop(context.currentTime + .23);
+  } catch { /* Audio is optional. */ }
 }
 
-function speakAndSpellWord(word: string) {
-  const parts = [word.toLowerCase(), ...word.toUpperCase(), word.toLowerCase()];
-  speakParts(parts.map((text, index) => ({
-    text,
-    rate: index > 0 && index < parts.length - 1 ? 1 : 0.85,
-  })));
-}
-
-function Sparkles() {
-  return <div className="sparkles" aria-hidden="true">{Array.from({ length: 20 }, (_, i) => <i key={i} />)}</div>;
-}
-
-function SetupScreen({ onStart }: { onStart: (settings: GameSettings) => void }) {
-  const [settings, setSettings] = useState<GameSettings>({ ageGroup: '7-8', ...AGE_OPTIONS[1].defaults });
-
-  const chooseAge = (option: typeof AGE_OPTIONS[number]) => {
-    setSettings({ ageGroup: option.id, ...option.defaults });
-  };
-
-  const start = () => onStart(settings);
-
-  return (
-    <main className="setup-shell">
-      <Sparkles />
-      <nav className="brand-bar" aria-label="Glow Words">
-        <div className="brand-mark" aria-hidden="true">G</div>
-        <div><strong>Glow Words</strong><span>Find your spark</span></div>
-      </nav>
-
-      <section className="setup-layout">
-        <div className="welcome-panel">
-          <div className="eyebrow"><span>✦</span> A little adventure in every word</div>
-          <h1>Ready, set,<br /><em>find!</em></h1>
-          <p>Race the clock, uncover hidden words, and make the whole board glow.</p>
-          <div className="hero-art" role="img" aria-label="A cheerful firefly exploring a magical garden of letters">
-            <img src={`${import.meta.env.BASE_URL}assets/letter-garden.webp`} alt="" />
-            <div className="art-sticker">Can you find<br /><strong>them all?</strong></div>
-            <div className="hero-palette" aria-hidden="true"><i /><i /><i /><span>Glow garden</span></div>
-          </div>
-        </div>
-
-        <div className="setup-card">
-          <div className="step-heading"><span>1</span><div><h2>Choose your explorer</h2><p>We’ll match words to their level.</p></div></div>
-          <div className="age-grid">
-            {AGE_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                className={`age-option ${settings.ageGroup === option.id ? 'selected' : ''}`}
-                onClick={() => chooseAge(option)}
-                aria-pressed={settings.ageGroup === option.id}
-              >
-                <span className="age-emoji">{option.emoji}</span>
-                <strong>Age {option.label}</strong>
-                <small>{option.level}</small>
-                <i aria-hidden="true">✓</i>
-              </button>
-            ))}
-          </div>
-
-          <div className="dotted-line" />
-          <div className="step-heading compact"><span>2</span><div><h2>Tune your challenge</h2><p>Age-friendly defaults are ready—or mix it up!</p></div></div>
-          <div className="tune-grid">
-            <label>
-              <b><span aria-hidden="true">⏱</span> Time</b>
-              <select value={settings.duration} onChange={(event) => setSettings({ ...settings, duration: Number(event.target.value) })}>
-                {DURATION_OPTIONS.map((value) => <option key={value} value={value}>{value / 60} {value === 60 ? 'minute' : 'minutes'}</option>)}
-              </select>
-            </label>
-            <label>
-              <b><span aria-hidden="true">☷</span> Words</b>
-              <select value={settings.wordCount} onChange={(event) => setSettings({ ...settings, wordCount: Number(event.target.value) })}>
-                {WORD_OPTIONS.map((value) => <option key={value} value={value}>{value} words</option>)}
-              </select>
-            </label>
-            <label>
-              <b><span aria-hidden="true">▦</span> Grid</b>
-              <select value={settings.gridSize} onChange={(event) => setSettings({ ...settings, gridSize: Number(event.target.value) })}>
-                {GRID_OPTIONS.map((value) => <option key={value} value={value}>{value} × {value}</option>)}
-              </select>
-            </label>
-          </div>
-
-          <button className="start-button" onClick={start}><span>Start exploring</span><b aria-hidden="true">→</b></button>
-          <p className="touch-hint"><span aria-hidden="true">☝</span> Drag across letters with your finger or mouse</p>
-        </div>
-      </section>
-    </main>
-  );
-}
-
-interface BoardProps {
-  puzzle: Puzzle;
-  found: FoundWord[];
-  onFound: (found: FoundWord) => void;
-  disabled: boolean;
-  muted: boolean;
-}
-
-function Board({ puzzle, found, onFound, disabled, muted }: BoardProps) {
-  const [selection, setSelection] = useState<Position[]>([]);
-  const [dragging, setDragging] = useState(false);
-  const [miss, setMiss] = useState(false);
-  const pointerId = useRef<number | null>(null);
-  const startCell = useRef<Position | null>(null);
-
-  const foundByCell = useMemo(() => {
-    const map = new Map<string, string>();
-    found.forEach((item) => item.cells.forEach((cell) => map.set(cellKey(cell), item.color)));
-    return map;
-  }, [found]);
-
-  const updateEnd = useCallback((position: Position) => {
-    if (!startCell.current) return;
-    setSelection(cellsBetween(startCell.current, position));
+function WinConfetti() {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const celebration = createWinCelebration(canvas.current!);
+    celebration.play();
+    return celebration.stop;
   }, []);
-
-  const begin = (event: ReactPointerEvent, position: Position) => {
-    if (disabled) return;
-    event.preventDefault();
-    pointerId.current = event.pointerId;
-    startCell.current = position;
-    setSelection([position]);
-    setDragging(true);
-    setMiss(false);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-  };
-
-  const move = (event: ReactPointerEvent) => {
-    if (!dragging || event.pointerId !== pointerId.current) return;
-    event.preventDefault();
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-cell]');
-    if (!target) return;
-    updateEnd({ row: Number(target.dataset.row), col: Number(target.dataset.col) });
-  };
-
-  const finish = (event: ReactPointerEvent) => {
-    if (!dragging || event.pointerId !== pointerId.current) return;
-    const letters = selection.map(({ row, col }) => puzzle.grid[row][col]).join('');
-    const reverse = [...letters].reverse().join('');
-    const placed = puzzle.placedWords.find(({ word }) => (word === letters || word === reverse) && !found.some((item) => item.word === word));
-    if (placed) {
-      const used = new Set(found.map((item) => item.color));
-      const available = COLORS.filter((color) => !used.has(color));
-      const color = (available.length ? available : COLORS)[Math.floor(Math.random() * (available.length || COLORS.length))];
-      onFound({ word: placed.word, color, cells: placed.cells });
-      if (!muted) speakAndSpellWord(placed.word);
-    } else if (selection.length > 1) {
-      setMiss(true);
-      window.setTimeout(() => setMiss(false), 360);
-    }
-    setDragging(false);
-    setSelection([]);
-    startCell.current = null;
-    pointerId.current = null;
-  };
-
-  const selectedKeys = new Set(selection.map(cellKey));
-
-  return (
-    <div
-      className={`letter-board ${miss ? 'miss' : ''}`}
-      style={{ '--grid-size': puzzle.grid.length } as CSSProperties}
-      onPointerMove={move}
-      onPointerUp={finish}
-      onPointerCancel={finish}
-      onContextMenu={(event) => event.preventDefault()}
-      role="grid"
-      aria-label="Word search letter grid"
-    >
-      {puzzle.grid.flatMap((row, rowIndex) => row.map((letter, colIndex) => {
-        const position = { row: rowIndex, col: colIndex };
-        const key = cellKey(position);
-        const foundColor = foundByCell.get(key);
-        const cellStyle = {
-          '--cell-hue': (rowIndex * 41 + colIndex * 53 + 264) % 360,
-          '--cell-delay': `${(rowIndex + colIndex) * 12}ms`,
-          ...(foundColor ? { '--found-color': foundColor } : {}),
-        } as CSSProperties;
-        return (
-          <div
-            key={key}
-            className={`letter-cell ${selectedKeys.has(key) ? 'selecting' : ''} ${foundColor ? 'found-cell' : ''}`}
-            style={cellStyle}
-            data-cell="true"
-            data-row={rowIndex}
-            data-col={colIndex}
-            role="gridcell"
-            onPointerDown={(event) => begin(event, position)}
-          >
-            <span>{letter}</span>
-          </div>
-        );
-      }))}
-    </div>
-  );
+  return <canvas ref={canvas} className="win-confetti" aria-hidden="true" />;
 }
 
-function GameScreen({ settings, onHome }: { settings: GameSettings; onHome: () => void }) {
+interface RoundProps {
+  settings: GameSettings;
+  boardSide: BoardSide;
+  onBoardSideChange: (side: BoardSide) => void;
+  muted: boolean;
+  toggleSound: () => void;
+  newRound: (settings: GameSettings) => void;
+  install: ReturnType<typeof useInstall>;
+}
+
+function Round({ settings, boardSide, onBoardSideChange, muted, toggleSound, newRound, install }: RoundProps) {
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
-  const [source, setSource] = useState<'server' | 'offline'>('offline');
   const [found, setFound] = useState<FoundWord[]>([]);
-  const [timeLeft, setTimeLeft] = useState(settings.duration);
-  const [ended, setEnded] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [round, setRound] = useState(0);
-  const [practiceWord, setPracticeWord] = useState<PlacedWord | null>(null);
-  const [trailExpanded, setTrailExpanded] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [bonus, setBonus] = useState(0);
+  const [panel, setPanel] = useState<'settings' | 'install' | 'install-offer' | null>(null);
+  const [practice, setPractice] = useState<PlacedWord | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+  const [listCollapsed, setListCollapsed] = useState(false);
+  const winAudio = useMemo(createWinAudio, []);
+  const audioContext = useRef<AudioContext | null>(null);
+  const timeLeft = Math.max(0, settings.duration + bonus - elapsed);
+  const won = Boolean(puzzle && found.length > 0 && found.length === puzzle.placedWords.length);
+  const ended = won || timeLeft === 0;
+
+  const { skipOffer, shouldOffer, rememberOffer } = install;
+  useEffect(() => {
+    if (panel === 'install-offer' && skipOffer) {
+      setPanel(null);
+    } else if (shouldOffer && puzzle && !panel && !practice && !ended) {
+      rememberOffer();
+      setPanel('install-offer');
+    }
+  }, [panel, skipOffer, shouldOffer, rememberOffer, puzzle, practice, ended]);
 
   useEffect(() => {
     let active = true;
-    cancelSpeech();
-    setPuzzle(null);
-    setFound([]);
-    setEnded(false);
-    setTimeLeft(settings.duration);
-    setPracticeWord(null);
-    setTrailExpanded(false);
-    getWords(settings).then((result) => {
-      if (!active) return;
-      const nextPuzzle = createPuzzle(result.words, settings.gridSize);
-      setPuzzle(nextPuzzle);
-      setSource(result.source);
-    });
+    getWords(settings).then(({ words }) => { if (active) setPuzzle(createPuzzle(words, settings.gridSize)); });
     return () => { active = false; };
-  }, [settings, round]);
+  }, [settings]);
 
-  useEffect(() => cancelSpeech, []);
-
-  useEffect(() => {
-    if (!puzzle || ended || practiceWord) return;
-    const timer = window.setInterval(() => {
-      setTimeLeft((current) => {
-        if (current <= 1) {
-          window.clearInterval(timer);
-          setEnded(true);
-          if (!muted) playEndTone();
-          return 0;
-        }
-        return current - 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [puzzle, ended, muted, practiceWord]);
-
-  useEffect(() => {
-    if (puzzle && found.length === puzzle.placedWords.length && found.length > 0) {
-      const timeout = window.setTimeout(() => setEnded(true), 450);
-      return () => window.clearTimeout(timeout);
-    }
-  }, [found.length, puzzle]);
-
-  const addFound = (word: FoundWord) => {
-    setFound((current) => current.some((item) => item.word === word.word) ? current : [...current, word]);
-  };
-
-  const openPractice = (word: PlacedWord) => {
+  useEffect(() => () => {
     cancelSpeech();
-    setPracticeWord(word);
+    winAudio.stop();
+    if (audioContext.current) void audioContext.current.close();
+  }, [winAudio]);
+
+  useEffect(() => {
+    if (!puzzle || ended || panel || practice) return;
+    const timer = window.setInterval(() => setElapsed(value => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [puzzle, ended, panel, practice]);
+
+  const timeExpired = timeLeft === 0 && !won;
+  useEffect(() => {
+    if (timeExpired && !muted) playEndTone();
+    // Play once at the moment the clock expires.
+  }, [timeExpired]);
+
+  const addFound = (item: FoundWord) => {
+    if (!puzzle || ended || found.some(match => match.word === item.word)) return;
+    setFound([...found, item]);
+    if (muted) return;
+    const readWord = () => speakAndSpellWord(item.word);
+    const Audio = window.AudioContext ?? window.webkitAudioContext;
+    if (found.length + 1 < puzzle.placedWords.length || !Audio) return readWord();
+    cancelSpeech();
+    try {
+      const context = audioContext.current ??= new Audio();
+      void winAudio.play(context, readWord);
+    } catch { readWord(); }
   };
 
-  const finishPractice = useCallback((bonusSeconds: number) => {
-    setTimeLeft((current) => current + bonusSeconds);
-    setPracticeWord(null);
+  const finishPractice = useCallback((seconds: number) => {
+    setBonus(value => value + seconds);
+    setPractice(null);
   }, []);
+  const openPanel = (next: 'settings' | 'install') => {
+    if (next === 'install') rememberOffer();
+    cancelSpeech();
+    winAudio.stop();
+    setPanel(next);
+  };
+  const closeResult = () => { cancelSpeech(); winAudio.stop(); setReviewing(true); };
+  const total = puzzle?.placedWords.length ?? settings.wordCount;
 
-  if (!puzzle) {
-    return <main className="loading-screen"><div className="loader-orbit"><span>G</span></div><h1>Hiding your words…</h1><p>Sprinkling letters across the board</p></main>;
-  }
-
-  const progress = found.length / puzzle.placedWords.length;
-  const urgency = timeLeft <= 30;
-  const allFound = found.length === puzzle.placedWords.length;
-
-  return (
-    <main className={`game-shell ${trailExpanded ? 'trail-expanded' : ''}`}>
-      <div className="game-aurora" aria-hidden="true"><i /><i /><i /><i /></div>
-      <header className="game-header">
-        <button className="icon-button home-button" onClick={onHome} aria-label="Back to setup">←</button>
-        <div className="mini-brand"><span>G</span><strong>Glow Words</strong></div>
-        <div className={`timer ${urgency ? 'urgent' : ''}`} aria-label={`${formatTime(timeLeft)} remaining`}><span>⏱</span><strong>{formatTime(timeLeft)}</strong></div>
-        <button className="icon-button" onClick={() => setMuted(!muted)} aria-label={muted ? 'Turn sound on' : 'Turn sound off'}>{muted ? '🔇' : '🔊'}</button>
-      </header>
-
-      <div className="game-content">
-        <section className="mission-card">
-          <div className="trail-header" aria-label="Game controls">
-            <div className="trail-header-actions">
-              <button className="icon-button home-button" onClick={onHome} aria-label="Back to setup">←</button>
-              <div className="trail-brand"><span>G</span><strong>Glow Words</strong></div>
-              <button className="icon-button" onClick={() => setMuted(!muted)} aria-label={muted ? 'Turn sound on' : 'Turn sound off'}>{muted ? '🔇' : '🔊'}</button>
-            </div>
-            <div className={`timer ${urgency ? 'urgent' : ''}`} aria-label={`${formatTime(timeLeft)} remaining`}><span>⏱</span><strong>{formatTime(timeLeft)}</strong></div>
-          </div>
-          <button
-            type="button"
-            className="trail-toggle"
-            onClick={() => setTrailExpanded((expanded) => !expanded)}
-            aria-expanded={trailExpanded}
-            aria-controls="word-trail-list"
-            aria-label={`${trailExpanded ? 'Collapse' : 'Expand'} word list menu`}
-          >
-            <span>Words</span><b aria-hidden="true">{trailExpanded ? '‹' : '›'}</b>
-          </button>
-          <div className="mission-heading">
-            <div><span className="eyebrow game-eyebrow">Your word trail</span><h1>Find the hidden words</h1><p>Tap a word to pause the game and practice it.</p></div>
-            <div className="score-bubble"><strong>{found.length}</strong><span>of {puzzle.placedWords.length}</span></div>
-          </div>
-          <div className="progress-track"><i style={{ width: `${progress * 100}%` }} /></div>
-          <div className="word-chips" id="word-trail-list">
-            {puzzle.placedWords.map((placedWord, index) => {
-              const { word } = placedWord;
-              const match = found.find((item) => item.word === word);
-              const chipStyle = {
-                '--chip-hue': (index * 47 + 270) % 360,
-                ...(match ? { '--word-color': match.color } : {}),
-              } as CSSProperties;
-              return (
-                <button
-                  key={word}
-                  type="button"
-                  className={match ? 'found-word' : ''}
-                  style={chipStyle}
-                  onClick={() => openPractice(placedWord)}
-                  aria-label={`Pause and practice ${word.toLowerCase()}`}
-                  title={`Practice ${word.toLowerCase()}`}
-                >
-                  <span aria-hidden="true">🔊</span>{match && '✓ '}{word}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="board-wrap">
-          <div className="board-caption"><span><i /> Swipe a straight line</span><span className="source-note" title="Words are built into the app when the server is unavailable">{source === 'server' ? '● Online words' : '● Offline words'}</span></div>
-          <div className="board-stage">
-            <Board puzzle={puzzle} found={found} onFound={addFound} disabled={ended || Boolean(practiceWord)} muted={muted} />
-          </div>
-        </section>
-      </div>
-
-      {practiceWord && (
-        <WordPracticeDialog
-          word={practiceWord.word}
-          acceptedTranscriptions={practiceWord.acceptedTranscriptions}
-          muted={muted}
-          onComplete={finishPractice}
-        />
-      )}
-
-      {ended && (
-        <div className="result-backdrop" role="dialog" aria-modal="true" aria-labelledby="result-title">
-          {allFound && <div className="confetti" aria-hidden="true">{Array.from({ length: 28 }, (_, i) => <i key={i} />)}</div>}
-          <div className="result-card">
-            <div className="result-orb">{allFound ? '🏆' : found.length ? '✨' : '🌱'}</div>
-            <span className="eyebrow">{allFound ? 'Trail complete!' : 'Time’s up!'}</span>
-            <h1 id="result-title">{allFound ? 'You found every spark!' : 'Great exploring!'}</h1>
-            <p>You uncovered <strong>{found.length} of {puzzle.placedWords.length}</strong> hidden words.</p>
-            <div className="result-stats"><div><span>Words found</span><strong>{found.length}</strong></div><div><span>Time used</span><strong>{formatTime(settings.duration - timeLeft)}</strong></div></div>
-            <button className="start-button" onClick={() => setRound((value) => value + 1)}><span>Play another board</span><b>↻</b></button>
-            <button className="text-button" onClick={onHome}>Change my challenge</button>
-          </div>
+  return <main className="garden" data-board-side={boardSide}>
+    <div className="night-sky" aria-hidden="true">{['G', 'W', 'S', 'A'].map(letter => <i key={letter}>{letter}</i>)}</div>
+    <header className="game-header" inert={Boolean(practice)}>
+      <div className="brand"><img src={`${import.meta.env.BASE_URL}icons/glow-192.png`} alt="" /><h1>Glow <span>Words</span></h1></div>
+      <div className="hud">
+        <div className={`timer ${timeLeft <= 30 && !won ? 'urgent' : ''}`} aria-label={`${formatTime(timeLeft)} remaining`}>
+          <Icon name="clock" /><strong>{formatTime(timeLeft)}</strong>
         </div>
-      )}
-    </main>
-  );
+        <button className="hud-button" onClick={toggleSound} aria-label={muted ? 'Turn sound on' : 'Turn sound off'} title={muted ? 'Turn sound on' : 'Turn sound off'}><Icon name={muted ? 'muted' : 'sound'} /></button>
+        <button className="hud-button" onClick={() => openPanel('settings')} aria-haspopup="dialog" aria-label="Settings" title="Settings"><Icon name="settings" /></button>
+        {!install.installed && <button className="hud-button install-button" onClick={() => openPanel('install')} aria-haspopup="dialog" aria-label="Install Glow Words" title="Install Glow Words"><Icon name="install" /><span>Install</span></button>}
+      </div>
+    </header>
+
+    <div className="game-content" inert={Boolean(practice)}>
+      <section className="board-panel" aria-labelledby="garden-title">
+        <div className="board-heading"><h2 id="garden-title"><Icon name="spark" />Letter garden</h2><span>{settings.gridSize} × {settings.gridSize}</span></div>
+        {puzzle ? <Board puzzle={puzzle} found={found} onFound={addFound} disabled={ended || Boolean(panel || practice)} />
+          : <div className="loading-board" role="status">Hiding your words…</div>}
+        {ended && reviewing && <button className="replay-link" onClick={() => newRound(settings)}>Play another puzzle <Icon name="arrow" /></button>}
+      </section>
+
+      <section className="trail-panel" aria-labelledby="trail-title">
+        <div className="trail-art" aria-hidden="true"></div>
+        <div className="trail-body">
+          <div className="trail-heading"><h2 id="trail-title">Word trail</h2>
+            <span className="count" aria-label={`${found.length} of ${total} words found`}>{found.length} / {total}</span>
+            <button className="trail-toggle" onClick={() => setListCollapsed(!listCollapsed)} aria-label={listCollapsed ? 'Expand word list' : 'Collapse word list'} aria-expanded={!listCollapsed} aria-controls="trail-list"><Icon name="list" /></button>
+          </div>
+          <progress value={found.length} max={total} aria-label="Words found" />
+          {!listCollapsed && <div id="trail-list">
+            <ul className="word-chips">{puzzle?.placedWords.map((word, i) => {
+              const match = found.find(item => item.word === word.word);
+              return <li key={word.word}><button className={match ? 'found-word' : ''} disabled={ended}
+                style={{ '--chip-color': match?.color ?? ['#a18af6', '#f2aa64', '#68c9aa', '#88aee7'][i % 4] } as CSSProperties}
+                onClick={() => { cancelSpeech(); setPractice(word); }} aria-label={`Pause and practice ${word.word.toLowerCase()}`}>
+                <span className="word-symbol" aria-hidden="true"><Icon name={match ? 'check' : 'sound'} /></span>{word.word}
+              </button></li>;
+            })}</ul>
+            <p className="practice-tip"><Icon name="sound" />Tap a word to hear it or say it aloud.</p>
+          </div>}
+        </div>
+      </section>
+    </div>
+
+    {practice && <WordPracticeDialog word={practice.word} acceptedTranscriptions={practice.acceptedTranscriptions} muted={muted} onComplete={finishPractice} />}
+    {ended && !reviewing && <Modal titleId="result-title" className="result-dialog" onDismiss={closeResult}>
+      {won && <WinConfetti />}
+      <button className="dialog-close" onClick={closeResult} aria-label="Review finished puzzle"><Icon name="close" /></button>
+      <div className="trophy" aria-hidden="true">{won ? '🏆' : '⏳'}</div>
+      <h2 id="result-title">{won ? 'You found every spark!' : 'Time’s up!'}</h2>
+      <p>{won ? 'Every word in the garden is glowing.' : 'Here’s how far you got on the word trail.'}</p>
+      <div className="result-stats"><div><strong>{found.length} / {total}</strong>Words found</div><div><strong>{formatTime(elapsed)}</strong>Time used</div></div>
+      <button className="primary-button" onClick={() => newRound(settings)}>Play another puzzle <Icon name="arrow" /></button>
+      <button className="quiet-button" onClick={() => { closeResult(); openPanel('settings'); }}>Change my challenge</button>
+    </Modal>}
+    {panel === 'settings' && <SettingsDialog current={settings} boardSide={boardSide} onBoardSideChange={onBoardSideChange}
+      onStart={newRound} onDismiss={() => setPanel(null)} />}
+    {(panel === 'install' || panel === 'install-offer') && <InstallDialog install={install}
+      automatic={panel === 'install-offer'} onDismiss={() => setPanel(null)} />}
+  </main>;
 }
 
 export default function App() {
-  const [settings, setSettings] = useState<GameSettings | null>(null);
-  return settings
-    ? <GameScreen settings={settings} onHome={() => setSettings(null)} />
-    : <SetupScreen onStart={setSettings} />;
+  const [settings, setSettings] = useState(readSettings);
+  const [round, setRound] = useState(0);
+  const [muted, setMuted] = useState(readMuted);
+  const [boardSide, setBoardSide] = useState(readBoardSide);
+  const install = useInstall();
+  const newRound = (next: GameSettings) => {
+    saveSettings(next);
+    setSettings(next);
+    setRound(value => value + 1);
+  };
+  const toggleSound = () => {
+    if (!muted) cancelSpeech();
+    saveMuted(!muted);
+    setMuted(!muted);
+  };
+  const changeBoardSide = (side: BoardSide) => {
+    saveBoardSide(side);
+    setBoardSide(side);
+  };
+  return <Round key={round} settings={settings} newRound={newRound} boardSide={boardSide} onBoardSideChange={changeBoardSide}
+    muted={muted} toggleSound={toggleSound} install={install} />;
 }

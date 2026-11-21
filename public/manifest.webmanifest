@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "Glow Words",
+  "short_name": "Glow Words",
+  "description": "Find hidden words in a glowing letter garden.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#201d3c",
+  "theme_color": "#201d3c",
+  "related_applications": [{ "platform": "webapp", "url": "./manifest.webmanifest", "id": "./" }],
+  "icons": [
+    { "src": "icons/glow-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/glow-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

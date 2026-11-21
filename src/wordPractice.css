@@ -197,7 +197,9 @@
   box-shadow: 0 7px 16px rgba(255, 79, 135, .11);
 }
 
-.practice-record:disabled { cursor: wait; }
+.practice-record:disabled { cursor: default; }
+.practice-record:disabled:not(.is-preparing, .is-listening) { background: #f3edf2; border-color: #ddd0da !important; }
+.record-dot svg { width: 24px; height: 24px; vertical-align: middle; }
 .record-dot { color: var(--coral); text-shadow: 0 0 0 rgba(255, 79, 135, .3); }
 .practice-record.is-preparing .record-dot { animation: record-wait 1.15s ease-in-out infinite; }
 .practice-record.is-listening .record-dot { animation: record-pulse .85s ease-in-out infinite; }
@@ -308,4 +310,20 @@
 
 @media (prefers-reduced-motion: reduce) {
   .practice-party { display: none; }
+}
+
+@media (orientation: landscape) and (max-height: 580px) {
+  .practice-backdrop { padding: max(7px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(7px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
+  .practice-card { width: min(670px, 100%); max-height: 100%; min-height: 0; padding: 14px 20px 10px; border-radius: 21px; overscroll-behavior: contain; }
+  .practice-mascot { display: none; }
+  .practice-close { top: 7px; right: 8px; }
+  .practice-card h2 { margin: 3px 30px 9px; font-size: 23px; }
+  .practice-letters { gap: 4px; margin-bottom: 8px; }
+  .practice-letters button { width: 34px; font-size: 19px; border-radius: 10px; }
+  .practice-message { min-height: 0; margin-bottom: 8px; font-size: 14px; line-height: 1.3; }
+  .practice-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .practice-actions > button { min-height: 46px; padding: 5px 10px; }
+  .practice-return { margin-top: 5px; }
+  .practice-review { margin-bottom: 7px; padding: 5px; }
+  .practice-bonus { width: 46px; }
 }

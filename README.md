@@ -1,6 +1,6 @@
 # Glow Words
 
-A colorful, touch-first word search game for mobile and desktop browsers. Players choose an age level and tune the timer, word count, and grid size before racing to find hidden words.
+A touch-first word search game for mobile and desktop browsers. Play starts in the letter garden. Open Settings to choose the reading level, timer, word count, and grid size for a new puzzle. The install dialog offers home-screen installation, and the game works offline once the first online visit finishes caching.
 
 ## Run with Docker
 
@@ -44,6 +44,14 @@ docker compose exec -T app nginx -t
 
 Open the preview and try the game. See [HOSTING.md](HOSTING.md) for HTTP and
 asset verification. The default preview uses HTTP; HTTPS is not configured.
+
+To run the Chromium tests for puzzle settings, celebrations, installation, and
+offline play under the GitHub Pages path:
+
+```text
+docker build --target browser-test -t glowwords-browser-test .
+docker run --rm glowwords-browser-test
+```
 
 To stop the app:
 

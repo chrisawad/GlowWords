@@ -48,3 +48,8 @@ export function speakParts(parts: SpeechPart[]) {
 export function speakText(text: string, rate = 0.8, pitch = 1.08) {
   speakParts([{ text, rate, pitch }]);
 }
+
+export function speakAndSpellWord(word: string) {
+  const spoken = word.toLowerCase();
+  speakParts([{ text: spoken, rate: 0.85 }, ...[...word].map(text => ({ text })), { text: spoken, rate: 0.85 }]);
+}
