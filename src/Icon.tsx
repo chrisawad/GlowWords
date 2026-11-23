@@ -5,6 +5,7 @@ const paths = {
   muted: <><path d="M4 9h4l5-4v14l-5-4H4zM17 9l5 6m0-6-5 6"/></>,
   clock: <><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></>,
   install: <path d="M12 3v11m-4-4 4 4 4-4M4 15v5h16v-5"/>,
+  share: <><circle cx="18" cy="5" r="3"/><circle cx="5" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m7.7 10.6 7.6-4.2M7.7 13.4l7.6 4.2"/></>,
   spark: <path d="m12 2 2.1 7.9L22 12l-7.9 2.1L12 22l-2.1-7.9L2 12l7.9-2.1z"/>,
   close: <path d="m6 6 12 12M18 6 6 18"/>,
   check: <path d="m5 12 4 4L19 6"/>,

@@ -104,6 +104,72 @@ test('settings and practice pause the current puzzle, and new settings survive r
   assert.equal(await page.locator('.win-confetti').count(), 0);
 });
 
+test('sharing the public game link pauses the puzzle until the native sheet closes', async t => {
+  const { page } = await openPuzzle(t, { beforeVisit: () => {
+    Object.defineProperty(navigator, 'share', { value: data => new Promise((resolve, reject) => {
+      window.shareRequest = { data, active: navigator.userActivation.isActive, resolve, reject };
+    }) });
+  } });
+  const share = page.getByRole('button', { name: 'Share Glow Words' });
+  await share.click();
+  assert.deepEqual(await page.evaluate(() => window.shareRequest.data),
+    { title: 'Glow Words', url: 'https://words.chrisawad.com/' });
+  assert.ok(await page.evaluate(() => window.shareRequest.active));
+  const time = await page.locator('.timer').textContent();
+  await delay(1250);
+  assert.equal(await page.locator('.timer').textContent(), time);
+  await page.evaluate(() => window.shareRequest.reject(new DOMException('Canceled', 'AbortError')));
+  await page.waitForFunction(previous => document.querySelector('.timer').textContent !== previous, time);
+  assert.equal(await page.getByRole('dialog').count(), 0);
+  await share.click();
+  await page.evaluate(() => window.shareRequest.resolve());
+  assert.equal(await page.getByRole('dialog').count(), 0);
+  await share.click();
+  await page.evaluate(() => window.shareRequest.reject(new DOMException('Blocked', 'NotAllowedError')));
+  await page.getByRole('dialog', { name: 'Share Glow Words' }).waitFor();
+});
+
+test('sharing without a system sheet supports clipboard and manual copying', async t => {
+  const { page, context } = await openPuzzle(t, { beforeVisit: () => {
+    Object.defineProperty(navigator, 'share', { value: undefined });
+  } });
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const share = page.locator('header').getByRole('button', { name: 'Share Glow Words' });
+  const icon = share.locator('svg');
+  const label = share.getByText('Share', { exact: true });
+  for (const [width, height] of [[320, 640], [351, 640], [375, 812], [390, 844], [412, 915], [421, 915], [568, 320], [686, 320], [740, 360], [844, 390], [1024, 768], [1280, 800]]) {
+    await page.setViewportSize({ width, height });
+    assert.ok(await icon.isVisible() && await label.isVisible(), `share icon and label at ${width} × ${height}`);
+    const [buttonBox, iconBox, labelBox] = await Promise.all([share.boundingBox(), icon.boundingBox(), label.boundingBox()]);
+    assert.ok(buttonBox.x <= iconBox.x && iconBox.x + iconBox.width <= labelBox.x
+      && labelBox.x + labelBox.width <= buttonBox.x + buttonBox.width, 'share icon beside label inside button');
+    assert.ok(await page.locator('.hud').evaluate(hud => {
+      const header = hud.parentElement.getBoundingClientRect();
+      return [...hud.children].every(control => {
+        const box = control.getBoundingClientRect();
+        return box.left >= header.left - 1 && box.right <= header.right + 1
+          && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight;
+      });
+    }), `header at ${width} × ${height}`);
+    await share.click({ trial: true });
+  }
+  await share.click();
+  const dialog = page.getByRole('dialog', { name: 'Share Glow Words' });
+  const field = dialog.getByLabel('Game link');
+  const url = 'https://words.chrisawad.com/';
+  assert.equal(await field.inputValue(), url);
+  await dialog.getByRole('button', { name: 'Copy link' }).click();
+  await dialog.getByText('Link copied.').waitFor();
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), url);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { value: undefined }));
+  await dialog.getByRole('button', { name: 'Copy link' }).click();
+  await dialog.getByText(/selected link/).waitFor();
+  assert.ok(await field.evaluate(input => input === document.activeElement
+    && input.selectionStart === 0 && input.selectionEnd === input.value.length));
+  await page.keyboard.press('Escape');
+  assert.ok(await share.evaluate(button => button === document.activeElement));
+});
+
 test('finding every word plays the shared celebration once and replay clears the trail', async t => {
   const { page } = await openPuzzle(t);
   await page.evaluate(() => {

@@ -1,5 +1,7 @@
 # Glow Words
 
+[Play Glow Words](https://words.chrisawad.com/)
+
 A touch-first word search game for mobile and desktop browsers. Play starts in the letter garden. Open Settings to choose the reading level, timer, word count, and grid size for a new puzzle. The install dialog offers home-screen installation, and the game works offline once the first online visit finishes caching.
 
 ## Run with Docker

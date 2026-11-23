@@ -5,6 +5,7 @@ import Icon from './Icon';
 import InstallDialog, { useInstall } from './InstallDialog';
 import Modal from './Modal';
 import SettingsDialog, { readBoardSide, readMuted, readSettings, saveBoardSide, saveMuted, saveSettings } from './SettingsDialog';
+import ShareDialog, { gameUrl } from './ShareDialog';
 import WordPracticeDialog from './WordPracticeDialog';
 import { createWinCelebration } from './celebration';
 import { createPuzzle } from './puzzle';
@@ -60,7 +61,7 @@ function Round({ settings, boardSide, onBoardSideChange, muted, toggleSound, new
   const [found, setFound] = useState<FoundWord[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [bonus, setBonus] = useState(0);
-  const [panel, setPanel] = useState<'settings' | 'install' | 'install-offer' | null>(null);
+  const [panel, setPanel] = useState<'settings' | 'install' | 'install-offer' | 'sharing' | 'share-link' | null>(null);
   const [practice, setPractice] = useState<PlacedWord | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [listCollapsed, setListCollapsed] = useState(false);
@@ -122,11 +123,26 @@ function Round({ settings, boardSide, onBoardSideChange, muted, toggleSound, new
     setBonus(value => value + seconds);
     setPractice(null);
   }, []);
-  const openPanel = (next: 'settings' | 'install') => {
+  const openPanel = (next: 'settings' | 'install' | 'sharing' | 'share-link') => {
     if (next === 'install') rememberOffer();
     cancelSpeech();
     winAudio.stop();
     setPanel(next);
+  };
+  const shareGame = async () => {
+    if (panel) return;
+    if (!navigator.share) {
+      openPanel('share-link');
+      return;
+    }
+    openPanel('sharing');
+    try {
+      await navigator.share({ title: 'Glow Words', url: gameUrl });
+      setPanel(current => current === 'sharing' ? null : current);
+    } catch (error) {
+      const next = error instanceof DOMException && error.name === 'AbortError' ? null : 'share-link';
+      setPanel(current => current === 'sharing' ? next : current);
+    }
   };
   const closeResult = () => { cancelSpeech(); winAudio.stop(); setReviewing(true); };
   const total = puzzle?.placedWords.length ?? settings.wordCount;
@@ -140,6 +156,7 @@ function Round({ settings, boardSide, onBoardSideChange, muted, toggleSound, new
           <Icon name="clock" /><strong>{formatTime(timeLeft)}</strong>
         </div>
         <button className="hud-button" onClick={toggleSound} aria-label={muted ? 'Turn sound on' : 'Turn sound off'} title={muted ? 'Turn sound on' : 'Turn sound off'}><Icon name={muted ? 'muted' : 'sound'} /></button>
+        <button className="hud-button share-button" onClick={shareGame} aria-label="Share Glow Words" title="Share Glow Words"><Icon name="share" /><span>Share</span></button>
         <button className="hud-button" onClick={() => openPanel('settings')} aria-haspopup="dialog" aria-label="Settings" title="Settings"><Icon name="settings" /></button>
         {!install.installed && <button className="hud-button install-button" onClick={() => openPanel('install')} aria-haspopup="dialog" aria-label="Install Glow Words" title="Install Glow Words"><Icon name="install" /><span>Install</span></button>}
       </div>
@@ -189,6 +206,7 @@ function Round({ settings, boardSide, onBoardSideChange, muted, toggleSound, new
     </Modal>}
     {panel === 'settings' && <SettingsDialog current={settings} boardSide={boardSide} onBoardSideChange={onBoardSideChange}
       onStart={newRound} onDismiss={() => setPanel(null)} />}
+    {panel === 'share-link' && <ShareDialog onDismiss={() => setPanel(null)} />}
     {(panel === 'install' || panel === 'install-offer') && <InstallDialog install={install}
       automatic={panel === 'install-offer'} onDismiss={() => setPanel(null)} />}
   </main>;

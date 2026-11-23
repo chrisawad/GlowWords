@@ -69,6 +69,7 @@ h1, h2, p { margin: 0; }
 }
 .hud-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 46px; height: 46px; padding: 0 11px; }
 .hud-button:hover { background: #53476b; }
+.share-button { flex: none; gap: 5px; font-weight: 800; }
 .install-button { padding-inline: 15px; color: var(--honey); font-weight: 800; }
 .timer { height: 46px; padding: 0 15px; gap: 8px; color: #ffdd9b; }
 .timer strong { font: 560 22px var(--display); font-variant-numeric: tabular-nums; }
@@ -148,6 +149,9 @@ progress::-moz-progress-bar { border-radius: 5px; background: #ffd583; }
 .quiet-button { margin-top: 7px; background: transparent; color: #725886; border: 0; }
 .install-help, .result-stats { padding: 14px; border-radius: 12px; background: #f3e8d6; margin-bottom: 12px; }
 .install-dialog [role='status']:not(:empty) { margin: 12px 0; }
+.share-dialog label { display: block; margin: 16px 0 5px; }
+.share-dialog input { width: 100%; padding: 10px; margin-bottom: 14px; border: 1px solid #c4b5a3; border-radius: 9px; font: inherit; color: var(--ink); background: #fffefa; }
+.share-dialog [role='status']:not(:empty) { margin-top: 12px; }
 .result-dialog { text-align: center; }
 .trophy { width: 78px; height: 78px; font-size: 49px; background: #ffe4a7; margin: 0 auto 14px; border: 2px solid #f8c96c; border-radius: 24px; }
 .result-stats { display: flex; justify-content: space-around; margin-bottom: 18px; }
@@ -159,7 +163,7 @@ progress::-moz-progress-bar { border-radius: 5px; background: #ffd583; }
   .garden { padding: max(14px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
   .brand { gap: 6px; }
   .brand img { width: 34px; height: 34px; border-radius: 11px; }
-  .brand h1 { font-size: clamp(20px, 5.4vw, 33px); white-space: nowrap; }
+  .brand h1 { font-size: clamp(20px, 5.4vw, 33px); }
   .hud { gap: 5px; }
   .hud-button, .timer { min-width: 38px; height: 40px; padding-inline: 8px; border-radius: 12px; }
   .timer { gap: 4px; }
@@ -179,9 +183,16 @@ progress::-moz-progress-bar { border-radius: 5px; background: #ffd583; }
   .word-chips { grid-template-columns: repeat(3, minmax(0,1fr)); gap: 6px; margin: 11px 0 8px; }
   .word-chips button { font-size: 11px; min-height: 32px; }
 }
-@media (max-width: 360px) and (orientation: portrait) {
+@media (max-width: 440px) and (orientation: portrait) {
   .brand img { display: none; }
   .game-header { gap: 4px; }
+  .hud { gap: 3px; }
+}
+@media (max-width: 365px) and (orientation: portrait) {
+  .game-header, .hud { gap: 2px; }
+  .timer { padding-inline: 4px; }
+  .timer svg { display: none; }
+  .share-button { gap: 4px; padding-inline: 6px; font-size: 14px; }
 }
 @media (orientation: landscape) {
   .garden {
@@ -216,9 +227,10 @@ progress::-moz-progress-bar { border-radius: 5px; background: #ffd583; }
   .game-header { grid-area: controls; container-type: inline-size; gap: 6px; width: 100%; }
   .brand { gap: 6px; }
   .brand img { width: 34px; height: 34px; border-radius: 10px; }
-  .brand h1 { font-size: 21px; white-space: nowrap; }
+  .brand h1 { font-size: 21px; }
   .hud { gap: 4px; }
   .hud-button, .timer { height: 42px; min-width: 42px; padding-inline: 7px; border-radius: 13px; }
+  .share-button { gap: 4px; font-size: 14px; }
   .timer { gap: 4px; }
   .timer strong { font-size: 18px; }
   .timer svg { width: 16px; }
@@ -239,8 +251,20 @@ progress::-moz-progress-bar { border-radius: 5px; background: #ffd583; }
   .word-chips { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; gap: 5px; margin: 8px 0 5px; padding: 2px; }
   .word-chips button { min-height: 40px; padding: 5px 7px; font-size: .76rem; }
   .practice-tip { flex: none; font-size: 11px; }
-  @container (max-width: 341px) { .brand h1 { position: absolute; clip-path: inset(50%); width: 1px; overflow: hidden; } }
-  @container (max-width: 245px) { .brand img { width: 24px; height: 24px; } .hud-button { min-width: 35px; } }
+  @container (max-width: 395px) { .brand h1 { position: absolute; clip-path: inset(50%); width: 1px; overflow: hidden; } }
+  @container (max-width: 345px) {
+    .brand { position: absolute; clip-path: inset(50%); width: 1px; overflow: hidden; }
+    .hud { width: 100%; justify-content: space-between; flex-wrap: wrap; }
+    .hud-button { min-width: 36px; }
+  }
+  @container (max-width: 270px) {
+    .timer { padding-inline: 4px; }
+    .timer svg { display: none; }
+    .share-button { padding-inline: 5px; }
+  }
+}
+@media (pointer: coarse) {
+  .share-button { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
