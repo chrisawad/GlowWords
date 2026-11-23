@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { after, before, test } from 'node:test';
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
-import { chromium } from 'playwright-core';
+import { chromium, devices } from 'playwright-core';
 
 const origin = 'http://127.0.0.1:4173';
 const base = origin + '/GlowWords/';
@@ -344,6 +344,38 @@ test('a browser without recognition can record the word and play it back', async
   await page.getByRole('heading', { name: 'You said it!' }).waitFor();
 });
 
+test('Android players can get install help from Settings without a native prompt', async t => {
+  const { page, context } = await openPuzzle(t, {
+    ...devices['Pixel 7'], dismissInstallOffer: false,
+    beforeVisit: () => {
+      Object.defineProperty(navigator, 'install', { value: undefined });
+      Object.defineProperty(navigator, 'getInstalledRelatedApps', { value: async () => [] });
+      window.addEventListener('beforeinstallprompt', event => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      });
+      // A past installation can suppress the offer without confirming a current install.
+      localStorage.setItem('glowwords.installConfirmed', '1');
+    },
+  });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const settings = page.getByRole('dialog', { name: 'Puzzle settings' });
+  await settings.getByText('How to install', { exact: true }).click();
+  await settings.getByText('Open in Chrome', { exact: true }).waitFor();
+  await settings.getByText(/paste the link into its address bar/).waitFor();
+  await settings.getByText('Add to Home screen', { exact: true }).waitFor();
+  await settings.getByText(/open the app drawer/).waitFor();
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await settings.getByRole('button', { name: 'Copy link' }).click();
+  await settings.getByText('Link copied.').waitFor();
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'https://words.chrisawad.com/');
+  await settings.getByRole('button', { name: 'Back to current puzzle' }).click();
+  await page.getByRole('button', { name: 'Install Glow Words' }).click();
+  const install = page.getByRole('dialog', { name: 'Install Glow Words' });
+  await install.getByText('Open in Chrome', { exact: true }).waitFor();
+  assert.equal(await install.getByRole('button', { name: 'Install app', exact: true }).count(), 0);
+});
+
 test('install dialog offers help, consumes native prompts once and hides after install', async t => {
   const { page } = await openPuzzle(t, { mockClock: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' });
   await page.evaluate(() => Object.defineProperty(navigator, 'install', { configurable: true, value: undefined }));
@@ -390,6 +422,7 @@ test('automatic install offer pauses play and appears once per tab session', asy
 
 test('waits for an installed-app check before offering installation', async t => {
   const { page } = await openPuzzle(t, {
+    ...devices['Pixel 7'],
     dismissInstallOffer: false,
     beforeVisit: () => {
       Object.defineProperty(navigator, 'getInstalledRelatedApps', { value: () => new Promise(resolve => {
@@ -402,6 +435,9 @@ test('waits for an installed-app check before offering installation', async t =>
   await page.waitForFunction(() => !document.querySelector('.install-button'));
   assert.equal(await page.getByRole('dialog').count(), 0);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByText('Where to find Glow Words', { exact: true }).click();
+  await page.getByText(/open the app drawer/).waitFor();
+  assert.equal(await page.getByText('How to install', { exact: true }).count(), 0);
 });
 
 test('automatic offer uses the browser install API only in the button gesture', async t => {
@@ -472,6 +508,9 @@ test('Chromium installs the Pages app in a fresh regular profile', async t => {
   await installedGame.getByRole('gridcell').first().waitFor();
   assert.equal(await installedGame.evaluate(() => matchMedia('(display-mode: standalone)').matches), true);
   assert.equal(await installedGame.getByRole('button', { name: 'Install Glow Words' }).count(), 0);
+  await installedGame.getByRole('button', { name: 'Settings', exact: true }).click();
+  await installedGame.getByText('Where to find Glow Words', { exact: true }).click();
+  await installedGame.getByText(/computer’s apps/).waitFor();
   const returningTab = await context.newPage();
   await returningTab.goto(base);
   await returningTab.getByRole('gridcell').first().waitFor();

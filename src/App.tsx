@@ -5,7 +5,8 @@ import Icon from './Icon';
 import InstallDialog, { useInstall } from './InstallDialog';
 import Modal from './Modal';
 import SettingsDialog, { readBoardSide, readMuted, readSettings, saveBoardSide, saveMuted, saveSettings } from './SettingsDialog';
-import ShareDialog, { gameUrl } from './ShareDialog';
+import { gameUrl } from './CopyGameLink';
+import ShareDialog from './ShareDialog';
 import WordPracticeDialog from './WordPracticeDialog';
 import { createWinCelebration } from './celebration';
 import { createPuzzle } from './puzzle';
@@ -204,7 +205,7 @@ function Round({ settings, boardSide, onBoardSideChange, muted, toggleSound, new
       <button className="primary-button" onClick={() => newRound(settings)}>Play another puzzle <Icon name="arrow" /></button>
       <button className="quiet-button" onClick={() => { closeResult(); openPanel('settings'); }}>Change my challenge</button>
     </Modal>}
-    {panel === 'settings' && <SettingsDialog current={settings} boardSide={boardSide} onBoardSideChange={onBoardSideChange}
+    {panel === 'settings' && <SettingsDialog current={settings} installed={install.installed} boardSide={boardSide} onBoardSideChange={onBoardSideChange}
       onStart={newRound} onDismiss={() => setPanel(null)} />}
     {panel === 'share-link' && <ShareDialog onDismiss={() => setPanel(null)} />}
     {(panel === 'install' || panel === 'install-offer') && <InstallDialog install={install}

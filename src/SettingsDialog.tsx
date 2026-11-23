@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { BoardSide, GameSettings } from './types';
 import Icon from './Icon';
+import InstallHelp from './InstallHelp';
 import Modal from './Modal';
 
 const levels = [
@@ -46,7 +47,8 @@ export function saveMuted(muted: boolean) {
   try { localStorage.setItem(mutedKey, String(muted)); } catch { /* Session settings still work. */ }
 }
 
-export default function SettingsDialog({ current, boardSide, onBoardSideChange, onStart, onDismiss }: {
+export default function SettingsDialog({ current, installed, boardSide, onBoardSideChange, onStart, onDismiss }: {
+  installed: boolean;
   boardSide: BoardSide; onBoardSideChange: (side: BoardSide) => void;
   current: GameSettings; onStart: (settings: GameSettings) => void; onDismiss: () => void;
 }) {
@@ -55,6 +57,7 @@ export default function SettingsDialog({ current, boardSide, onBoardSideChange, 
     <button type="button" className="dialog-close" onClick={onDismiss} aria-label="Close settings"><Icon name="close" /></button>
     <div className="dialog-symbol"><Icon name="settings" /></div>
     <h2 id="settings-title">Puzzle settings</h2>
+    <InstallHelp installed={installed} />
     <div className="board-side-setting">
       <label htmlFor="board-side">Landscape board side</label>
       <select id="board-side" value={boardSide} onChange={event => onBoardSideChange(event.target.value as BoardSide)}>

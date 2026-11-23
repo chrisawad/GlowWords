@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import Icon from './Icon';
+import InstallHelp from './InstallHelp';
 import Modal from './Modal';
 
 interface InstallPrompt extends Event {
@@ -112,7 +113,6 @@ export default function InstallDialog({ install, automatic, onDismiss }: {
 }) {
   const [message, setMessage] = useState('');
   const [pending, setPending] = useState(false);
-  const appleMobile = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const request = async () => {
     if (pending) return;
     setPending(true);
@@ -130,14 +130,10 @@ export default function InstallDialog({ install, automatic, onDismiss }: {
     <h2 id="install-title">Install Glow Words</h2>
     <p>Keep the word garden on your home screen.{install.offlineReady && ' This device is ready for offline play.'}</p>
     {install.installed ? <p role="status">Glow Words is installed.</p> : <>
-      {!install.canPrompt && !pending && <div className="install-help">{!window.isSecureContext
-        ? <>Open Glow Words over HTTPS to install it.</>
-        : appleMobile ? <>In Safari, tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>. Turn on <strong>Open as Web App</strong> if offered, then tap <strong>Add</strong>.</>
-        : <>Open your browser menu and choose <strong>Install app</strong>, <strong>Add to Home Screen</strong>, or <strong>Add to Dock</strong>, if available.</>}
-      </div>}
       <div role="status">{message}</div>
       {(install.canPrompt || pending) && <button className="primary-button" aria-disabled={pending} onClick={request}><Icon name="install" />{pending ? 'Installing…' : 'Install app'}</button>}
     </>}
+    <InstallHelp installed={install.installed} expanded={!automatic && !install.canPrompt && !pending} />
     <button type="button" className="quiet-button" onClick={onDismiss}>{automatic ? 'Not now' : 'Back to puzzle'}</button>
   </Modal>;
 }

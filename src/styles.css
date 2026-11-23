@@ -148,10 +148,16 @@ progress::-moz-progress-bar { border-radius: 5px; background: #ffd583; }
 .primary-button:hover { background: #79559f; }
 .quiet-button { margin-top: 7px; background: transparent; color: #725886; border: 0; }
 .install-help, .result-stats { padding: 14px; border-radius: 12px; background: #f3e8d6; margin-bottom: 12px; }
+.install-help { margin-top: 12px; padding: 0 14px; }
+.install-help summary { padding: 12px 0; cursor: pointer; font-weight: 800; }
+.install-help summary:focus-visible { outline: 3px solid var(--violet); outline-offset: 2px; }
+.install-help ol { padding-left: 22px; margin: 0; }
+.install-help li + li { margin-top: 8px; }
+.install-help p:last-child { padding-bottom: 12px; margin-bottom: 0; }
 .install-dialog [role='status']:not(:empty) { margin: 12px 0; }
-.share-dialog label { display: block; margin: 16px 0 5px; }
-.share-dialog input { width: 100%; padding: 10px; margin-bottom: 14px; border: 1px solid #c4b5a3; border-radius: 9px; font: inherit; color: var(--ink); background: #fffefa; }
-.share-dialog [role='status']:not(:empty) { margin-top: 12px; }
+.copy-game-link label { display: block; margin: 16px 0 5px; }
+.copy-game-link input { width: 100%; padding: 10px; margin-bottom: 14px; border: 1px solid #c4b5a3; border-radius: 9px; font: inherit; color: var(--ink); background: #fffefa; }
+.copy-game-link [role='status']:not(:empty) { margin-top: 12px; }
 .result-dialog { text-align: center; }
 .trophy { width: 78px; height: 78px; font-size: 49px; background: #ffe4a7; margin: 0 auto 14px; border: 2px solid #f8c96c; border-radius: 24px; }
 .result-stats { display: flex; justify-content: space-around; margin-bottom: 18px; }
