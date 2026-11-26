@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import CopyGameLink from './CopyGameLink';
 import Icon from './Icon';
 import InstallSteps from './InstallSteps';
-import { getInstallLaunch } from './installLaunch';
+import { isEmbeddedLaunch } from './installLaunch';
 import Modal from './Modal';
 
 interface InstallPrompt extends Event {
@@ -17,7 +17,7 @@ const nav = navigator as Navigator & {
 const standalone = matchMedia('(display-mode: standalone), (display-mode: minimal-ui), (display-mode: window-controls-overlay)');
 
 export function useInstall() {
-  const [launch] = useState(getInstallLaunch);
+  const [embedded] = useState(isEmbeddedLaunch);
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null);
   const [installedHere, setInstalledHere] = useState(false);
   const [alreadyInstalled, setAlreadyInstalled] = useState(false);
@@ -98,12 +98,12 @@ export function useInstall() {
     return accepted;
   };
   // On iOS the window can explicitly report browser mode even when its host looks standalone.
-  const ownWindow = !launch.external && (nav.standalone ?? appMode);
+  const ownWindow = !embedded && (nav.standalone ?? appMode);
   const installed = ownWindow || installedHere || alreadyInstalled;
   return {
     installed,
-    embedded: launch.external,
-    shouldOffer: checked && !installed && !launch.invited && !offerSeen,
+    embedded,
+    shouldOffer: checked && !installed && !offerSeen,
     rememberOffer,
     canPrompt: window.isSecureContext && Boolean(canUseInstallApi || prompt),
     request,

@@ -76,10 +76,10 @@ function Round({ settings, boardSide, onBoardSideChange, muted, toggleSound, new
   useEffect(() => {
     if (panel === 'install' && installed) {
       setPanel(null);
-    } else if (shouldOffer && !panel && !practice && !ended) {
+    } else if (shouldOffer && puzzle && !panel && !practice && (!ended || reviewing)) {
       setPanel('install');
     }
-  }, [panel, installed, shouldOffer, practice, ended]);
+  }, [panel, installed, shouldOffer, puzzle, practice, ended, reviewing]);
 
   useEffect(() => {
     let active = true;

@@ -524,26 +524,48 @@ test('an unmarked frame on a desktop-mode iPad shows Safari instructions', async
   await game.getByRole('gridcell').first().waitFor();
 });
 
-test('a confirmed dashboard install and an invited entry both go straight to the puzzle', async t => {
-  for (const [suffix, lookup] of [
-    ['#from=games-dashboard', 'installed'],
-    ['?room=ABC#from=games-dashboard', 'dashboardOnly'],
-  ]) {
-    const { page } = await openPuzzle(t, {
-      ...devices['Pixel 7'], url: base + suffix, dismissInstallOffer: false,
-      beforeVisit: inAppBrowser, initArg: lookup,
-    });
-    const button = page.getByRole('button', { name: 'Install Glow Words' });
-    if (lookup === 'installed') {
-      await page.waitForFunction(() => !document.querySelector('.install-button'));
-    } else {
-      await button.click();
-      await page.getByRole('button', { name: 'Not now' }).click();
-    }
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
-    assert.doesNotMatch(await page.getByRole('dialog', { name: 'Puzzle settings' }).innerText(), /install/i);
-    assert.equal(page.url(), base + suffix);
-  }
+test('a confirmed dashboard install opens the puzzle directly', async t => {
+  const { page } = await openPuzzle(t, {
+    ...devices['Pixel 7'], url: base + '#from=games-dashboard', dismissInstallOffer: false,
+    beforeVisit: inAppBrowser, initArg: 'installed',
+  });
+  await page.waitForFunction(() => !document.querySelector('.install-button'));
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  assert.doesNotMatch(await page.getByRole('dialog', { name: 'Puzzle settings' }).innerText(), /install/i);
+});
+
+test('a shared puzzle loads before its install offer and keeps its board, progress and link', async t => {
+  const url = base + '?room=ABC&invite=family#puzzle=garden&join=ABC&from=games-dashboard';
+  const { page } = await openPuzzle(t, {
+    url, dismissInstallOffer: false, beforeVisit: () => {
+      const show = HTMLDialogElement.prototype.showModal;
+      HTMLDialogElement.prototype.showModal = function () {
+        if (this.classList.contains('install-dialog')) {
+          window.boardAtOffer = document.querySelector('[role="grid"]')?.textContent;
+        }
+        show.call(this);
+      };
+      Object.defineProperty(navigator, 'share', { value: async data => { window.shared = data.url; } });
+    },
+  });
+  const dialog = page.getByRole('dialog', { name: 'Install Glow Words' });
+  await dialog.waitFor();
+  const board = await page.evaluate(() => window.boardAtOffer);
+  assert.ok(board?.trim());
+  await dialog.getByRole('button', { name: 'Not now' }).click();
+  assert.equal(await page.getByRole('grid').textContent(), board);
+  await solve(page, 1);
+  await page.waitForFunction(() => document.querySelectorAll('.found-word').length === 1);
+  await page.getByRole('button', { name: 'Share Glow Words' }).click();
+  assert.equal(await page.evaluate(() => window.shared), 'https://words.chrisawad.com/');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  // A restored visit with Settings open defers its offer until the player returns to the board.
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
+  await page.getByRole('button', { name: 'Back to current puzzle' }).click();
+  await dialog.getByRole('button', { name: 'Not now' }).click();
+  assert.equal(await page.locator('.found-word').count(), 1);
+  assert.equal(await page.getByRole('grid').textContent(), board);
+  assert.equal(page.url(), url);
 });
 
 test('install dialog offers help, consumes native prompts once and hides after install', async t => {

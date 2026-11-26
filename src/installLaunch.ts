@@ -6,10 +6,9 @@ export function getPlatform() {
   return 'desktop';
 }
 
-export function getInstallLaunch() {
+export function isEmbeddedLaunch() {
   const platform = getPlatform();
   const fragment = new URLSearchParams(location.hash.slice(1));
-  const query = new URLSearchParams(location.search);
   const dashboard = fragment.getAll('from').includes('games-dashboard')
     || /^https:\/\/(?:games\.chrisawad\.com\/|chrisawad\.github\.io\/Games-Dashboard(?:\/|$))/i.test(document.referrer);
   const ua = navigator.userAgent;
@@ -19,7 +18,5 @@ export function getInstallLaunch() {
       && !(navigator as Navigator & { standalone?: boolean }).standalone);
   const inheritedDisplay = platform === 'ios' && (navigator as Navigator & { standalone?: boolean }).standalone === false
     && matchMedia('(display-mode: standalone)').matches;
-  const external = dashboard || window.top !== window.self || androidAppReferrer || webView || inheritedDisplay;
-  const invited = ['room', 'invite', 'join'].some(key => query.has(key) || fragment.has(key));
-  return { external, invited };
+  return dashboard || window.top !== window.self || androidAppReferrer || webView || inheritedDisplay;
 }
