@@ -1,12 +1,5 @@
 import CopyGameLink, { gameUrl } from './CopyGameLink';
-
-function getPlatform() {
-  const ua = navigator.userAgent;
-  if (/Android/i.test(ua)) return 'android';
-  if (/iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'ios';
-  if (/Mac/.test(navigator.platform)) return 'mac';
-  return 'desktop';
-}
+import { getPlatform } from './installLaunch';
 
 const launchInstructions = {
   android: 'Swipe up on your Android home screen to open the app drawer. Find Glow Words and tap it to play.',
@@ -27,7 +20,14 @@ function PlatformInstructions({ platform }: { platform: keyof typeof launchInstr
     </>;
   }
   if (platform === 'ios') {
-    return <p>Open Glow Words in Safari. Tap Safari’s <strong>Share</strong> button, then <strong>Add to Home Screen</strong>. Turn on <strong>Open as Web App</strong> if offered and tap <strong>Add</strong>.</p>;
+    return <>
+      <ol>
+        <li>If Glow Words opened inside another app, choose <strong>Open in Safari</strong> from its menu. If that option is missing, tap <strong>Copy link</strong> below and paste the link into Safari.</li>
+        <li>In Safari, tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</li>
+        <li>Turn on <strong>Open as Web App</strong> if offered, then tap <strong>Add</strong>.</li>
+      </ol>
+      <CopyGameLink />
+    </>;
   }
   if (platform === 'mac') {
     return <p>Open Glow Words in Safari. Choose <strong>File → Add to Dock</strong>, then <strong>Add</strong>.</p>;

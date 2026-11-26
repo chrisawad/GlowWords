@@ -76,11 +76,11 @@ function Round({ settings, boardSide, onBoardSideChange, muted, toggleSound, new
   useEffect(() => {
     if (panel === 'install-offer' && skipOffer) {
       setPanel(null);
-    } else if (shouldOffer && puzzle && !panel && !practice && !ended) {
+    } else if (shouldOffer && !panel && !practice && !ended) {
       rememberOffer();
       setPanel('install-offer');
     }
-  }, [panel, skipOffer, shouldOffer, rememberOffer, puzzle, practice, ended]);
+  }, [panel, skipOffer, shouldOffer, rememberOffer, practice, ended]);
 
   useEffect(() => {
     let active = true;

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import Icon from './Icon';
 import InstallHelp from './InstallHelp';
+import { getInstallLaunch } from './installLaunch';
 import Modal from './Modal';
+import { offlineReady as offlineReadyForPlay } from './offline';
 
 interface InstallPrompt extends Event {
   prompt(): Promise<void>;
@@ -17,6 +19,7 @@ const offerKey = 'glowwords.installOfferSeen';
 const installedKey = 'glowwords.installConfirmed';
 
 export function useInstall() {
+  const [launch] = useState(getInstallLaunch);
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null);
   const [installedHere, setInstalledHere] = useState(false);
   const [previousInstall, setPreviousInstall] = useState(() => {
@@ -25,29 +28,40 @@ export function useInstall() {
   const [alreadyInstalled, setAlreadyInstalled] = useState(false);
   const [checked, setChecked] = useState(false);
   const [offerSeen, setOfferSeen] = useState(() => {
+    if (launch.showEntryHelp) return false;
     try { return sessionStorage.getItem(offerKey) === '1'; } catch { return false; }
   });
   const rememberOffer = useCallback(() => {
     setOfferSeen(true);
+    if (launch.showEntryHelp) return;
     try { sessionStorage.setItem(offerKey, '1'); } catch { /* The current game still remembers the offer. */ }
-  }, []);
+  }, [launch]);
   const [appMode, setAppMode] = useState(standalone.matches);
-  const [offlineReady, setOfflineReady] = useState(Boolean(navigator.serviceWorker?.controller));
+  const [offlineReady, setOfflineReady] = useState(false);
   useEffect(() => {
     let active = true;
+    let latestCheck = 0;
     const manifest = document.querySelector<HTMLLinkElement>('link[rel="manifest"]')?.href;
+    // Give a fast positive result time to arrive. Some webviews never settle the lookup.
+    const deadline = window.setTimeout(() => setChecked(true), 600);
     const checkInstalled = async () => {
-      if (!manifest || !nav.getInstalledRelatedApps) return;
+      const check = ++latestCheck;
       try {
+        if (!manifest || !nav.getInstalledRelatedApps) return;
         const apps = await nav.getInstalledRelatedApps();
         const id = new URL('./', manifest).href;
-        if (active) setAlreadyInstalled(apps.some(app => app.platform === 'webapp' && (app.url === manifest || app.id === id)));
-      } catch { /* Standalone mode and browser install events remain available. */ }
+        if (active && check === latestCheck) setAlreadyInstalled(apps.some(app => app.platform === 'webapp' && (app.url === manifest || app.id === id)));
+      } catch { /* A denied lookup leaves installation unconfirmed. */ }
+      finally {
+        if (active && check === latestCheck) {
+          window.clearTimeout(deadline);
+          setChecked(true);
+        }
+      }
     };
-    void checkInstalled().then(() => { if (active) setChecked(true); });
-    if ('serviceWorker' in navigator) {
-      void navigator.serviceWorker.ready.then(() => { if (active) setOfflineReady(true); });
-    }
+    if (document.readyState === 'complete') void checkInstalled();
+    else window.addEventListener('load', checkInstalled, { once: true });
+    void offlineReadyForPlay.then(ready => { if (active) setOfflineReady(ready); });
     const reflect = () => setAppMode(standalone.matches);
     const capture = (event: Event) => {
       event.preventDefault();
@@ -56,7 +70,6 @@ export function useInstall() {
       try { localStorage.removeItem(installedKey); } catch { /* Storage is optional. */ }
       setPreviousInstall(false);
       setInstalledHere(false);
-      setAlreadyInstalled(false);
     };
     const installed = () => { setInstalledHere(true); setPrompt(null); };
     const syncInstall = (event: StorageEvent) => {
@@ -69,6 +82,8 @@ export function useInstall() {
     window.addEventListener('storage', syncInstall);
     return () => {
       active = false;
+      window.clearTimeout(deadline);
+      window.removeEventListener('load', checkInstalled);
       standalone.removeEventListener('change', reflect);
       window.removeEventListener('focus', checkInstalled);
       window.removeEventListener('beforeinstallprompt', capture);
@@ -76,9 +91,10 @@ export function useInstall() {
       window.removeEventListener('storage', syncInstall);
     };
   }, []);
+  const canUseInstallApi = window.top === window.self && typeof nav.install === 'function';
   const request = async () => {
     let accepted = false;
-    if (nav.install) {
+    if (canUseInstallApi && nav.install) {
       await nav.install();
       accepted = true;
     } else if (prompt) {
@@ -89,21 +105,24 @@ export function useInstall() {
     if (accepted) setInstalledHere(true);
     return accepted;
   };
-  const installed = appMode || nav.standalone === true || installedHere || alreadyInstalled;
+  // On iOS the window can explicitly report browser mode even when its host looks standalone.
+  const ownWindow = !launch.external && (nav.standalone ?? appMode);
+  const installed = ownWindow || installedHere || alreadyInstalled;
   useEffect(() => {
     if (installed) {
       setPreviousInstall(true);
       try { localStorage.setItem(installedKey, '1'); } catch { /* In-memory detection still works. */ }
     }
   }, [installed]);
-  const skipOffer = installed || previousInstall;
+  const skipOffer = installed || launch.invited || (!launch.showEntryHelp && previousInstall);
   return {
     offlineReady,
     installed,
     skipOffer,
-    shouldOffer: checked && !skipOffer && !offerSeen && window.top === window.self,
+    showEntryHelp: launch.showEntryHelp,
+    shouldOffer: checked && !skipOffer && !offerSeen,
     rememberOffer,
-    canPrompt: window.isSecureContext && Boolean(nav.install || prompt),
+    canPrompt: window.isSecureContext && Boolean(canUseInstallApi || prompt),
     request,
   };
 }
@@ -133,7 +152,7 @@ export default function InstallDialog({ install, automatic, onDismiss }: {
       <div role="status">{message}</div>
       {(install.canPrompt || pending) && <button className="primary-button" aria-disabled={pending} onClick={request}><Icon name="install" />{pending ? 'Installing…' : 'Install app'}</button>}
     </>}
-    <InstallHelp installed={install.installed} expanded={!automatic && !install.canPrompt && !pending} />
+    <InstallHelp installed={install.installed} expanded={install.showEntryHelp || (!automatic && !install.canPrompt && !pending)} />
     <button type="button" className="quiet-button" onClick={onDismiss}>{automatic ? 'Not now' : 'Back to puzzle'}</button>
   </Modal>;
 }

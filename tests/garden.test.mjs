@@ -19,17 +19,16 @@ before(async () => {
 });
 after(async () => { await browser?.close(); server?.kill(); });
 
-async function openPuzzle(t, { dismissInstallOffer = true, beforeVisit, mockClock = false, ...options } = {}) {
+async function openPuzzle(t, { url = base, dismissInstallOffer = true, beforeVisit, initArg, mockClock = false, ...options } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, ...options });
   t.after(() => context.close());
-  if (beforeVisit) await context.addInitScript(beforeVisit);
+  if (beforeVisit) await context.addInitScript(beforeVisit, initArg);
   const page = await context.newPage();
   if (mockClock) await page.clock.install();
-  page.setDefaultTimeout(10000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   t.after(() => assert.deepEqual(errors, []));
-  await page.goto(base);
+  await page.goto(url);
   if (dismissInstallOffer) await page.getByRole('button', { name: 'Not now', exact: true }).click();
   await page.locator('[data-cell]').first().waitFor();
   return { page, context };
@@ -344,20 +343,49 @@ test('a browser without recognition can record the word and play it back', async
   await page.getByRole('heading', { name: 'You said it!' }).waitFor();
 });
 
-test('Android players can get install help from Settings without a native prompt', async t => {
-  const { page, context } = await openPuzzle(t, {
-    ...devices['Pixel 7'], dismissInstallOffer: false,
-    beforeVisit: () => {
-      Object.defineProperty(navigator, 'install', { value: undefined });
-      Object.defineProperty(navigator, 'getInstalledRelatedApps', { value: async () => [] });
-      window.addEventListener('beforeinstallprompt', event => {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-      });
-      // A past installation can suppress the offer without confirming a current install.
-      localStorage.setItem('glowwords.installConfirmed', '1');
-    },
+// Reproduce an installed host app with stale flags and no usable native install action.
+function inAppBrowser(lookup) {
+  localStorage.setItem('glowwords.installConfirmed', '1');
+  sessionStorage.setItem('glowwords.installOfferSeen', '1');
+  Object.defineProperty(navigator, 'standalone', { value: lookup !== 'iosBrowser' });
+  const matchMedia = window.matchMedia.bind(window);
+  window.matchMedia = query => {
+    const result = matchMedia(query);
+    if (query.includes('display-mode: standalone')) Object.defineProperty(result, 'matches', { value: true });
+    return result;
+  };
+  Object.defineProperty(navigator, 'install', { value: undefined });
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
   });
+  const installedApp = { platform: 'webapp', url: new URL('./manifest.webmanifest', location.href).href };
+  const checks = {
+    denied: async () => { throw new DOMException('Denied', 'NotAllowedError'); },
+    pending: () => new Promise(resolve => { window.confirmInstall = () => resolve([installedApp]); }),
+    installed: async () => [installedApp],
+    dashboardOnly: async () => [{ platform: 'webapp', id: new URL('/Games-Dashboard/', location.href).href }],
+  };
+  Object.defineProperty(navigator, 'getInstalledRelatedApps', { value: checks[lookup] });
+  // A host can deny even reading serviceWorker, or leave registration pending forever.
+  Object.defineProperty(navigator, 'serviceWorker', { get() {
+    if (lookup === 'denied') throw new DOMException('Denied', 'SecurityError');
+    return { register: () => new Promise(() => {}) };
+  } });
+}
+
+test('Android dashboard entry shows the steps, keeps dismissal for this visit, and reopens from Settings', async t => {
+  const url = base + '?puzzle=garden#from=games-dashboard';
+  const { page, context } = await openPuzzle(t, {
+    ...devices['Pixel 7'], url, dismissInstallOffer: false, beforeVisit: inAppBrowser,
+  });
+  const offer = page.getByRole('dialog', { name: 'Install Glow Words' });
+  await offer.getByText('Open in Chrome', { exact: true }).waitFor();
+  assert.equal(page.url(), url);
+  await offer.getByRole('button', { name: 'Not now' }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Start new puzzle' }).click();
+  await page.getByRole('gridcell').first().waitFor();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const settings = page.getByRole('dialog', { name: 'Puzzle settings' });
   await settings.getByText('How to install', { exact: true }).click();
@@ -374,6 +402,76 @@ test('Android players can get install help from Settings without a native prompt
   const install = page.getByRole('dialog', { name: 'Install Glow Words' });
   await install.getByText('Open in Chrome', { exact: true }).waitFor();
   assert.equal(await install.getByRole('button', { name: 'Install app', exact: true }).count(), 0);
+  await install.getByRole('button', { name: 'Back to puzzle' }).click();
+  await page.reload();
+  await offer.getByText('Open in Chrome', { exact: true }).waitFor();
+});
+
+test('iOS dashboard instructions open while lookups are pending, then close on game-specific confirmation', async t => {
+  const { page } = await openPuzzle(t, {
+    ...devices['iPhone 13'], url: base + '#from=games-dashboard', dismissInstallOffer: false,
+    beforeVisit: inAppBrowser, initArg: 'pending',
+  });
+  const offer = page.getByRole('dialog', { name: 'Install Glow Words' });
+  for (const step of ['Open in Safari', 'Share', 'Add to Home Screen', 'Add']) {
+    await offer.getByText(step, { exact: true }).waitFor();
+  }
+  assert.equal(await offer.getByLabel('Game link').inputValue(), 'https://words.chrisawad.com/');
+  await page.evaluate(() => window.confirmInstall());
+  await offer.waitFor({ state: 'detached' });
+  assert.equal(await page.getByRole('button', { name: 'Install Glow Words' }).count(), 0);
+});
+
+test('unmarked embedded Android and iOS browsers show steps despite denied checks or a different installed app', async t => {
+  for (const [device, suffix, lookup, step] of [
+    ['Pixel 7', '; wv)', 'dashboardOnly', 'Open in Chrome'],
+    ['iPhone 13', ' Instagram', 'denied', 'Open in Safari'],
+    ['iPhone 13', '', 'iosBrowser', 'Open in Safari'],
+  ]) {
+    const { page } = await openPuzzle(t, {
+      ...devices[device], userAgent: devices[device].userAgent + suffix,
+      dismissInstallOffer: false, beforeVisit: inAppBrowser, initArg: lookup,
+    });
+    await page.getByRole('dialog').getByText(step, { exact: true }).waitFor();
+  }
+});
+
+test('an unmarked frame on a desktop-mode iPad shows Safari instructions', async t => {
+  const context = await browser.newContext({
+    ...devices['iPad (gen 7)'], userAgent: devices['Desktop Safari'].userAgent,
+  });
+  t.after(() => context.close());
+  await context.addInitScript(inAppBrowser, 'denied');
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel' });
+    Object.defineProperty(navigator, 'maxTouchPoints', { value: 5 });
+  });
+  const page = await context.newPage();
+  await page.route(origin + '/host', route => route.fulfill({
+    contentType: 'text/html', body: '<iframe title="Game" src="/GlowWords/"></iframe>',
+  }));
+  await page.goto(origin + '/host');
+  const game = page.frameLocator('iframe');
+  const offer = game.getByRole('dialog', { name: 'Install Glow Words' });
+  await offer.getByText('Open in Safari', { exact: true }).waitFor();
+  await offer.getByRole('button', { name: 'Not now' }).click();
+  await game.getByRole('gridcell').first().waitFor();
+});
+
+test('a confirmed dashboard install and an invited entry both go straight to the puzzle', async t => {
+  for (const [suffix, lookup] of [
+    ['#from=games-dashboard', 'installed'],
+    ['?room=ABC#from=games-dashboard', 'dashboardOnly'],
+  ]) {
+    const { page } = await openPuzzle(t, {
+      ...devices['Pixel 7'], url: base + suffix, dismissInstallOffer: false,
+      beforeVisit: inAppBrowser, initArg: lookup,
+    });
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const summary = lookup === 'installed' ? 'Where to find Glow Words' : 'How to install';
+    await page.getByRole('dialog', { name: 'Puzzle settings' }).getByText(summary, { exact: true }).waitFor();
+    assert.equal(page.url(), base + suffix);
+  }
 });
 
 test('install dialog offers help, consumes native prompts once and hides after install', async t => {
@@ -420,18 +518,16 @@ test('automatic install offer pauses play and appears once per tab session', asy
   await offer.getByRole('button', { name: 'Back to puzzle' }).click();
 });
 
-test('waits for an installed-app check before offering installation', async t => {
+test('a prompt installed-app result suppresses the automatic offer', async t => {
   const { page } = await openPuzzle(t, {
     ...devices['Pixel 7'],
     dismissInstallOffer: false,
     beforeVisit: () => {
-      Object.defineProperty(navigator, 'getInstalledRelatedApps', { value: () => new Promise(resolve => {
-        window.finishInstallCheck = () => resolve([{ platform: 'webapp', id: new URL('./', location.href).href }]);
-      }) });
+      Object.defineProperty(navigator, 'getInstalledRelatedApps', { value: async () => [
+        { platform: 'webapp', id: new URL('./', location.href).href },
+      ] });
     },
   });
-  assert.equal(await page.getByRole('dialog').count(), 0);
-  await page.evaluate(() => window.finishInstallCheck());
   await page.waitForFunction(() => !document.querySelector('.install-button'));
   assert.equal(await page.getByRole('dialog').count(), 0);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
