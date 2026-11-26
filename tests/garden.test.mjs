@@ -473,18 +473,100 @@ test('the normal mobile and desktop dialogs use the reference wording and let pl
   }
 });
 
-test('an embedded native install action keeps the platform steps and the copy controls visible', async t => {
+async function assertCompactInstall(dialog, action = 'Install app') {
+  await dialog.getByRole('button', { name: action, exact: true }).waitFor();
+  assert.deepEqual((await dialog.innerText()).split(/\n+/), [
+    'Install Glow Words', 'Keep Glow Words on your home screen and play offline after your first visit.',
+    action, 'Not now',
+  ]);
+  assert.equal(await dialog.locator('.app-icon').count(), 1);
+  assert.equal(await dialog.locator('.install-steps, details, input, .copy-game-link').count(), 0);
+}
+
+test('dashboard native installation stays compact until the host rejects it, then offers manual installation', async t => {
   const { page } = await openPuzzle(t, {
     ...devices['Pixel 7'], url: base + '#from=games-dashboard', dismissInstallOffer: false,
     beforeVisit: () => {
-      Object.defineProperty(navigator, 'install', { value: async () => { throw new Error('Unavailable'); } });
+      Object.defineProperty(navigator, 'install', { value: () => new Promise((_, reject) => {
+        window.rejectInstall = (name, detail = name) => reject(new DOMException(detail, name));
+      }) });
+      window.addEventListener('beforeinstallprompt', event => {
+        if (event.isTrusted) { event.preventDefault(); event.stopImmediatePropagation(); }
+      });
     },
   });
   const dialog = page.getByRole('dialog', { name: 'Install Glow Words' });
-  await dialog.getByText('Open in Chrome', { exact: true }).waitFor();
-  await dialog.getByRole('button', { name: 'Copy link' }).waitFor();
-  await dialog.getByRole('button', { name: 'Install app', exact: true }).click();
+  await assertCompactInstall(dialog);
+  await dialog.getByRole('button', { name: 'Not now' }).click();
+  await page.getByRole('button', { name: 'Install Glow Words' }).click();
+  await assertCompactInstall(dialog);
+  await dialog.getByRole('button', { name: 'Install app' }).click();
+  await assertCompactInstall(dialog, 'Installing…');
+  await page.evaluate(() => window.rejectInstall('AbortError'));
+  await dialog.getByText('Installation canceled. You can keep playing here.', { exact: true }).waitFor();
+  assert.equal(await dialog.locator('.install-steps, details, input').count(), 0);
+  await dialog.getByRole('button', { name: 'Install app' }).click();
+  await page.evaluate(() => window.rejectInstall('SecurityError'));
   await dialog.getByText('The installer could not open. Try again or use your browser’s install menu.', { exact: true }).waitFor();
+  await dialog.getByText('Open in Chrome', { exact: true }).waitFor();
+  assert.equal(await dialog.getByLabel('Game link').inputValue(), 'https://words.chrisawad.com/');
+  await dialog.getByRole('button', { name: 'Copy link' }).waitFor();
+  assert.equal(await dialog.getByRole('button', { name: 'Install app', exact: true }).count(), 0);
+  await dialog.getByRole('button', { name: 'Not now' }).click();
+  await page.getByRole('button', { name: 'Install Glow Words' }).click();
+  await dialog.getByRole('button', { name: 'Copy link' }).waitFor();
+  await page.evaluate(() => {
+    const event = new Event('beforeinstallprompt', { cancelable: true });
+    event.prompt = async () => {};
+    event.userChoice = Promise.resolve({ outcome: 'accepted' });
+    window.dispatchEvent(event);
+  });
+  await assertCompactInstall(dialog);
+  await dialog.getByRole('button', { name: 'Install app' }).click();
+  await dialog.waitFor({ state: 'detached' });
+
+  await page.reload();
+  await dialog.getByRole('button', { name: 'Install app' }).click();
+  await page.evaluate(() => window.rejectInstall('AbortError', 'Installation is not supported in this browser.'));
+  await dialog.getByRole('button', { name: 'Copy link' }).waitFor();
+  await dialog.getByText('The installer could not open. Try again or use your browser’s install menu.', { exact: true }).waitFor();
+});
+
+test('a late browser prompt replaces the open fallback and stays compact through a pending request', async t => {
+  for (const marker of ['', '#from=games-dashboard']) {
+    const { page } = await openPuzzle(t, {
+      ...devices['Pixel 7'], url: base + marker, dismissInstallOffer: false,
+      beforeVisit: () => {
+        Object.defineProperty(navigator, 'install', { value: undefined });
+        window.addEventListener('beforeinstallprompt', event => {
+          if (event.isTrusted) { event.preventDefault(); event.stopImmediatePropagation(); }
+        });
+      },
+    });
+    const dialog = page.getByRole('dialog', { name: 'Install Glow Words' });
+    await dialog.getByText('Copy the game link', { exact: true }).waitFor();
+    await page.evaluate(() => {
+      const event = new Event('beforeinstallprompt', { cancelable: true });
+      event.prompt = async () => { window.promptCount = (window.promptCount ?? 0) + 1; };
+      event.userChoice = new Promise(resolve => { window.dismissNative = () => resolve({ outcome: 'dismissed' }); });
+      window.dispatchEvent(event);
+    });
+    await assertCompactInstall(dialog);
+    await dialog.getByRole('button', { name: 'Not now' }).click();
+    await page.getByRole('button', { name: 'Install Glow Words' }).click();
+    await assertCompactInstall(dialog);
+    await dialog.getByRole('button', { name: 'Install app' }).click();
+    await assertCompactInstall(dialog, 'Installing…');
+    await dialog.getByRole('button', { name: 'Not now' }).click();
+    await page.getByRole('button', { name: 'Install Glow Words' }).click();
+    await assertCompactInstall(dialog, 'Installing…');
+    assert.equal(await dialog.getByRole('button', { name: 'Installing…' }).getAttribute('aria-disabled'), 'true');
+    await page.evaluate(() => window.dismissNative());
+    await dialog.getByText('Installation canceled. You can keep playing here.', { exact: true }).waitFor();
+    await dialog.getByText('Copy the game link', { exact: true }).waitFor();
+    assert.equal(await dialog.getByLabel('Game link').inputValue(), 'https://words.chrisawad.com/');
+    assert.equal(await page.evaluate(() => window.promptCount), 1);
+  }
 });
 
 test('unmarked embedded Android and iOS browsers show steps despite denied checks or a different installed app', async t => {

@@ -15,15 +15,25 @@ const nav = navigator as Navigator & {
   getInstalledRelatedApps?: () => Promise<{ platform: string; url?: string; id?: string }[]>;
 };
 const standalone = matchMedia('(display-mode: standalone), (display-mode: minimal-ui), (display-mode: window-controls-overlay)');
+const canceledMessage = 'Installation canceled. You can keep playing here.';
+
+function isInstallCancellation(error: unknown) {
+  if (!(error instanceof Error) || error.name !== 'AbortError') return false;
+  // Some hosts use AbortError even when they explicitly report a policy or platform restriction.
+  return !/not supported|unsupported|not allowed|not permitted|unavailable|not available|restricted|blocked|permission denied/i.test(error.message);
+}
 
 export function useInstall() {
   const [embedded] = useState(isEmbeddedLaunch);
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null);
+  const [apiUnavailable, setApiUnavailable] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState('');
   const [installedHere, setInstalledHere] = useState(false);
   const [alreadyInstalled, setAlreadyInstalled] = useState(false);
   const [checked, setChecked] = useState(false);
   const [offerSeen, setOfferSeen] = useState(false);
-  const rememberOffer = useCallback(() => setOfferSeen(true), []);
+  const rememberOffer = useCallback(() => { setOfferSeen(true); setMessage(''); }, []);
   const [appMode, setAppMode] = useState(standalone.matches);
   useEffect(() => {
     let active = true;
@@ -56,6 +66,7 @@ export function useInstall() {
       setInstalledHere(false);
       setAlreadyInstalled(false);
       setChecked(false);
+      setApiUnavailable(false);
       window.clearTimeout(deadline);
       deadline = startDeadline();
       void checkInstalled();
@@ -64,6 +75,7 @@ export function useInstall() {
     const capture = (event: Event) => {
       event.preventDefault();
       setPrompt(event as InstallPrompt);
+      setMessage('');
       setInstalledHere(false);
     };
     const installed = () => { setInstalledHere(true); setPrompt(null); };
@@ -83,19 +95,34 @@ export function useInstall() {
       window.removeEventListener('pageshow', restoreVisit);
     };
   }, []);
-  const canUseInstallApi = window.top === window.self && typeof nav.install === 'function';
+  const canUseInstallApi = !apiUnavailable && window.top === window.self && typeof nav.install === 'function';
+  const canPrompt = window.isSecureContext && Boolean(canUseInstallApi || prompt);
   const request = async () => {
-    let accepted = false;
-    if (canUseInstallApi && nav.install) {
-      await nav.install();
-      accepted = true;
-    } else if (prompt) {
-      setPrompt(null);
-      await prompt.prompt();
-      accepted = (await prompt.userChoice).outcome === 'accepted';
+    if (pending || !canPrompt) return;
+    setPending(true);
+    setMessage('');
+    try {
+      if (canUseInstallApi && nav.install) {
+        await nav.install();
+        setInstalledHere(true);
+      } else if (prompt) {
+        setPrompt(null);
+        await prompt.prompt();
+        if ((await prompt.userChoice).outcome === 'accepted') setInstalledHere(true);
+        else setMessage(canceledMessage);
+      }
+    } catch (error) {
+      if (isInstallCancellation(error)) {
+        setMessage(canceledMessage);
+      } else {
+        // Some hosts expose the API but reject installation. A fresh eligibility event can still work.
+        setApiUnavailable(true);
+        setPrompt(current => current === prompt ? null : current);
+        setMessage('The installer could not open. Try again or use your browser’s install menu.');
+      }
+    } finally {
+      setPending(false);
     }
-    if (accepted) setInstalledHere(true);
-    return accepted;
   };
   // On iOS the window can explicitly report browser mode even when its host looks standalone.
   const ownWindow = !embedded && (nav.standalone ?? appMode);
@@ -105,7 +132,9 @@ export function useInstall() {
     embedded,
     shouldOffer: checked && !installed && !offerSeen,
     rememberOffer,
-    canPrompt: window.isSecureContext && Boolean(canUseInstallApi || prompt),
+    canPrompt,
+    pending,
+    message,
     request,
   };
 }
@@ -113,34 +142,20 @@ export function useInstall() {
 export default function InstallDialog({ install, onDismiss }: {
   install: ReturnType<typeof useInstall>; onDismiss: () => void;
 }) {
-  const [message, setMessage] = useState('');
-  const [pending, setPending] = useState(false);
-  const request = async () => {
-    if (pending) return;
-    setPending(true);
-    try {
-      setMessage('');
-      if (!await install.request()) setMessage('Installation canceled. You can keep playing here.');
-    } catch (error) {
-      setMessage(error instanceof DOMException && error.name === 'AbortError'
-        ? 'Installation canceled. You can keep playing here.'
-        : 'The installer could not open. Try again or use your browser’s install menu.');
-    } finally { setPending(false); }
-  };
-  const native = install.canPrompt || pending;
+  const native = install.canPrompt || install.pending;
   return <Modal titleId="install-title" className="install-dialog" onShow={install.rememberOffer} onDismiss={onDismiss}>
     <img className="app-icon" src={`${import.meta.env.BASE_URL}icons/glow-192.png`} alt="" />
     <h2 id="install-title">Install Glow Words</h2>
     <p>Keep Glow Words on your home screen and play offline after your first visit.</p>
-    {(!native || install.embedded) && <>
+    {!native && <>
       <InstallSteps embedded={install.embedded} />
       <details className="install-copy" open={install.embedded}>
         <summary>Copy the game link</summary>
         <CopyGameLink showLabel={false} />
       </details>
     </>}
-    {native && <button autoFocus={!install.embedded} className="primary-button" aria-disabled={pending} onClick={request}><Icon name="install" />{pending ? 'Installing…' : 'Install app'}</button>}
-    <div role="status">{message}</div>
+    {native && <button autoFocus={!install.embedded} className="primary-button" aria-disabled={install.pending} onClick={install.request}><Icon name="install" />{install.pending ? 'Installing…' : 'Install app'}</button>}
+    <div role="status">{install.message}</div>
     <button type="button" className="quiet-button" onClick={onDismiss}>Not now</button>
   </Modal>;
 }
