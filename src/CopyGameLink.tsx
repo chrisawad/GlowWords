@@ -2,7 +2,7 @@ import { useId, useRef, useState } from 'react';
 
 export const gameUrl = 'https://words.chrisawad.com/';
 
-export default function CopyGameLink() {
+export default function CopyGameLink({ showLabel = true }: { showLabel?: boolean }) {
   const id = useId();
   const field = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState('');
@@ -19,8 +19,8 @@ export default function CopyGameLink() {
   };
 
   return <div className="copy-game-link">
-    <label htmlFor={id}>Game link</label>
-    <input id={id} ref={field} readOnly value={gameUrl} onFocus={event => event.currentTarget.select()} />
+    {showLabel && <label htmlFor={id}>Game link</label>}
+    <input id={id} aria-label={showLabel ? undefined : 'Game link'} ref={field} readOnly value={gameUrl} onFocus={event => event.currentTarget.select()} />
     <button type="button" className="primary-button" onClick={copyLink}>Copy link</button>
     <div role="status">{message}</div>
   </div>;

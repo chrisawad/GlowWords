@@ -62,7 +62,7 @@ function Round({ settings, boardSide, onBoardSideChange, muted, toggleSound, new
   const [found, setFound] = useState<FoundWord[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [bonus, setBonus] = useState(0);
-  const [panel, setPanel] = useState<'settings' | 'install' | 'install-offer' | 'sharing' | 'share-link' | null>(null);
+  const [panel, setPanel] = useState<'settings' | 'install' | 'sharing' | 'share-link' | null>(null);
   const [practice, setPractice] = useState<PlacedWord | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [listCollapsed, setListCollapsed] = useState(false);
@@ -72,15 +72,14 @@ function Round({ settings, boardSide, onBoardSideChange, muted, toggleSound, new
   const won = Boolean(puzzle && found.length > 0 && found.length === puzzle.placedWords.length);
   const ended = won || timeLeft === 0;
 
-  const { skipOffer, shouldOffer, rememberOffer } = install;
+  const { installed, shouldOffer } = install;
   useEffect(() => {
-    if (panel === 'install-offer' && skipOffer) {
+    if (panel === 'install' && installed) {
       setPanel(null);
     } else if (shouldOffer && !panel && !practice && !ended) {
-      rememberOffer();
-      setPanel('install-offer');
+      setPanel('install');
     }
-  }, [panel, skipOffer, shouldOffer, rememberOffer, practice, ended]);
+  }, [panel, installed, shouldOffer, practice, ended]);
 
   useEffect(() => {
     let active = true;
@@ -125,7 +124,6 @@ function Round({ settings, boardSide, onBoardSideChange, muted, toggleSound, new
     setPractice(null);
   }, []);
   const openPanel = (next: 'settings' | 'install' | 'sharing' | 'share-link') => {
-    if (next === 'install') rememberOffer();
     cancelSpeech();
     winAudio.stop();
     setPanel(next);
@@ -205,11 +203,10 @@ function Round({ settings, boardSide, onBoardSideChange, muted, toggleSound, new
       <button className="primary-button" onClick={() => newRound(settings)}>Play another puzzle <Icon name="arrow" /></button>
       <button className="quiet-button" onClick={() => { closeResult(); openPanel('settings'); }}>Change my challenge</button>
     </Modal>}
-    {panel === 'settings' && <SettingsDialog current={settings} installed={install.installed} boardSide={boardSide} onBoardSideChange={onBoardSideChange}
+    {panel === 'settings' && <SettingsDialog current={settings} boardSide={boardSide} onBoardSideChange={onBoardSideChange}
       onStart={newRound} onDismiss={() => setPanel(null)} />}
     {panel === 'share-link' && <ShareDialog onDismiss={() => setPanel(null)} />}
-    {(panel === 'install' || panel === 'install-offer') && <InstallDialog install={install}
-      automatic={panel === 'install-offer'} onDismiss={() => setPanel(null)} />}
+    {panel === 'install' && !installed && <InstallDialog install={install} onDismiss={() => setPanel(null)} />}
   </main>;
 }
 

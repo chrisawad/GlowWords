@@ -95,6 +95,7 @@ test('settings and practice pause the current puzzle, and new settings survive r
   await page.waitForFunction(() => document.querySelectorAll('[data-cell]').length === 64);
   await page.getByRole('button', { name: 'Turn sound off' }).click();
   await page.reload();
+  await page.getByRole('button', { name: 'Not now' }).click();
   await page.getByRole('gridcell').first().waitFor();
   assert.equal(await page.getByRole('gridcell').count(), 64);
   assert.equal(await page.getByRole('button', { name: 'Turn sound on' }).count(), 1);
@@ -275,6 +276,7 @@ test('landscape board side changes mid-puzzle and survives rotation and reload',
   assert.ok(top.y + top.height <= bottom.y);
   await checkSide('left', tablet);
   await page.reload();
+  await page.getByRole('button', { name: 'Not now' }).click();
   await page.getByRole('gridcell').first().waitFor();
   await checkSide('left', phone);
   await settings.click();
@@ -293,6 +295,9 @@ test('plain HTTP explains microphone access and keeps read-aloud available', asy
     await route.fulfill({ response });
   });
   await page.goto('http://lan-preview.test/GlowWords/');
+  const offer = page.getByRole('dialog', { name: 'Install Glow Words' });
+  await offer.getByText('To install from this preview, open Glow Words over HTTPS.', { exact: true }).waitFor();
+  assert.equal(await offer.getByRole('link', { name: 'Glow Words over HTTPS' }).getAttribute('href'), 'https://words.chrisawad.com/');
   await page.getByRole('button', { name: 'Not now' }).click();
   await page.getByRole('button', { name: /^Pause and practice/ }).first().click();
   assert.equal(await page.evaluate(() => isSecureContext), false);
@@ -345,6 +350,7 @@ test('a browser without recognition can record the word and play it back', async
 
 // Reproduce an installed host app with stale flags and no usable native install action.
 function inAppBrowser(lookup) {
+  if (lookup === 'androidApp') Object.defineProperty(document, 'referrer', { value: 'android-app://com.example.reader' });
   localStorage.setItem('glowwords.installConfirmed', '1');
   sessionStorage.setItem('glowwords.installOfferSeen', '1');
   Object.defineProperty(navigator, 'standalone', { value: lookup !== 'iosBrowser' });
@@ -374,13 +380,20 @@ function inAppBrowser(lookup) {
   } });
 }
 
-test('Android dashboard entry shows the steps, keeps dismissal for this visit, and reopens from Settings', async t => {
+test('Android dashboard entry and the toolbar open the same dialog across visits', async t => {
   const url = base + '?puzzle=garden#from=games-dashboard';
   const { page, context } = await openPuzzle(t, {
     ...devices['Pixel 7'], url, dismissInstallOffer: false, beforeVisit: inAppBrowser,
   });
   const offer = page.getByRole('dialog', { name: 'Install Glow Words' });
   await offer.getByText('Open in Chrome', { exact: true }).waitFor();
+  const words = await offer.innerText();
+  assert.deepEqual(words.split(/\n+/), [
+    'Install Glow Words', 'Keep Glow Words on your home screen and play offline after your first visit.',
+    'Choose Open in Chrome in this window’s menu, or copy the game link below and open it in Chrome.',
+    'Tap Chrome’s ⋮ menu, choose Install app or Add to Home screen, and follow the prompt.',
+    'Copy the game link', 'Copy link', 'Not now',
+  ]);
   assert.equal(page.url(), url);
   await offer.getByRole('button', { name: 'Not now' }).click();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -388,23 +401,25 @@ test('Android dashboard entry shows the steps, keeps dismissal for this visit, a
   await page.getByRole('gridcell').first().waitFor();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const settings = page.getByRole('dialog', { name: 'Puzzle settings' });
-  await settings.getByText('How to install', { exact: true }).click();
-  await settings.getByText('Open in Chrome', { exact: true }).waitFor();
-  await settings.getByText(/paste the link into its address bar/).waitFor();
-  await settings.getByText('Add to Home screen', { exact: true }).waitFor();
-  await settings.getByText(/open the app drawer/).waitFor();
-  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-  await settings.getByRole('button', { name: 'Copy link' }).click();
-  await settings.getByText('Link copied.').waitFor();
-  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'https://words.chrisawad.com/');
+  assert.doesNotMatch(await settings.innerText(), /install/i);
   await settings.getByRole('button', { name: 'Back to current puzzle' }).click();
   await page.getByRole('button', { name: 'Install Glow Words' }).click();
   const install = page.getByRole('dialog', { name: 'Install Glow Words' });
   await install.getByText('Open in Chrome', { exact: true }).waitFor();
   assert.equal(await install.getByRole('button', { name: 'Install app', exact: true }).count(), 0);
-  await install.getByRole('button', { name: 'Back to puzzle' }).click();
+  assert.equal(await install.innerText(), words);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await install.getByRole('button', { name: 'Copy link' }).click();
+  await install.getByText('Link copied.', { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'https://words.chrisawad.com/');
+  await install.getByRole('button', { name: 'Not now' }).click();
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.getByRole('gridcell').first().waitFor();
   await page.reload();
   await offer.getByText('Open in Chrome', { exact: true }).waitFor();
+  const nextTab = await context.newPage();
+  await nextTab.goto(url);
+  await nextTab.getByRole('dialog', { name: 'Install Glow Words' }).getByText('Open in Chrome', { exact: true }).waitFor();
 });
 
 test('iOS dashboard instructions open while lookups are pending, then close on game-specific confirmation', async t => {
@@ -417,14 +432,65 @@ test('iOS dashboard instructions open while lookups are pending, then close on g
     await offer.getByText(step, { exact: true }).waitFor();
   }
   assert.equal(await offer.getByLabel('Game link').inputValue(), 'https://words.chrisawad.com/');
+  assert.deepEqual(await offer.locator('li').allTextContents(), [
+    'Use Open in Safari in this window’s menu, or copy the game link below and open it in Safari. Tap Share.',
+    'Choose Add to Home Screen. Turn on Open as Web App if offered, then tap Add.',
+  ]);
   await page.evaluate(() => window.confirmInstall());
   await offer.waitFor({ state: 'detached' });
   assert.equal(await page.getByRole('button', { name: 'Install Glow Words' }).count(), 0);
 });
 
+test('the normal mobile and desktop dialogs use the reference wording and let players copy the clean link', async t => {
+  for (const [device, steps] of [
+    ['Pixel 7', ['Open Glow Words in Chrome.', 'Tap Chrome’s ⋮ menu, choose Install app or Add to Home screen, and follow the prompt.']],
+    ['iPhone 13', ['Open Glow Words in Safari and tap Share.', 'Choose Add to Home Screen. Turn on Open as Web App if offered, then tap Add.']],
+    ['Desktop Safari', ['In Safari, choose File → Add to Dock, then select Add.']],
+    ['Desktop Chrome', ['Open Glow Words in Chrome or Edge and choose the install option in the address bar or browser menu.']],
+  ]) {
+    const { page } = await openPuzzle(t, {
+      ...devices[device], dismissInstallOffer: false,
+      beforeVisit: () => {
+        Object.defineProperty(navigator, 'install', { value: undefined });
+        Object.defineProperty(navigator, 'getInstalledRelatedApps', { value: undefined });
+        Object.defineProperty(navigator, 'clipboard', { value: undefined });
+        window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); event.stopImmediatePropagation(); });
+        for (const name of ['localStorage', 'sessionStorage']) {
+          Object.defineProperty(window, name, { get() { throw new DOMException('Blocked', 'SecurityError'); } });
+        }
+      },
+    });
+    const dialog = page.getByRole('dialog', { name: 'Install Glow Words' });
+    await dialog.waitFor();
+    assert.deepEqual((await dialog.innerText()).split(/\n+/), [
+      'Install Glow Words', 'Keep Glow Words on your home screen and play offline after your first visit.',
+      ...steps, 'Copy the game link', 'Not now',
+    ]);
+    await dialog.getByText('Copy the game link', { exact: true }).click();
+    await dialog.getByRole('button', { name: 'Copy link' }).click();
+    await dialog.getByText('Use your device’s Copy command to copy the selected link.', { exact: true }).waitFor();
+    assert.equal(await dialog.getByLabel('Game link').inputValue(), 'https://words.chrisawad.com/');
+  }
+});
+
+test('an embedded native install action keeps the platform steps and the copy controls visible', async t => {
+  const { page } = await openPuzzle(t, {
+    ...devices['Pixel 7'], url: base + '#from=games-dashboard', dismissInstallOffer: false,
+    beforeVisit: () => {
+      Object.defineProperty(navigator, 'install', { value: async () => { throw new Error('Unavailable'); } });
+    },
+  });
+  const dialog = page.getByRole('dialog', { name: 'Install Glow Words' });
+  await dialog.getByText('Open in Chrome', { exact: true }).waitFor();
+  await dialog.getByRole('button', { name: 'Copy link' }).waitFor();
+  await dialog.getByRole('button', { name: 'Install app', exact: true }).click();
+  await dialog.getByText('The installer could not open. Try again or use your browser’s install menu.', { exact: true }).waitFor();
+});
+
 test('unmarked embedded Android and iOS browsers show steps despite denied checks or a different installed app', async t => {
   for (const [device, suffix, lookup, step] of [
     ['Pixel 7', '; wv)', 'dashboardOnly', 'Open in Chrome'],
+    ['Pixel 7', '', 'androidApp', 'Open in Chrome'],
     ['iPhone 13', ' Instagram', 'denied', 'Open in Safari'],
     ['iPhone 13', '', 'iosBrowser', 'Open in Safari'],
   ]) {
@@ -467,9 +533,15 @@ test('a confirmed dashboard install and an invited entry both go straight to the
       ...devices['Pixel 7'], url: base + suffix, dismissInstallOffer: false,
       beforeVisit: inAppBrowser, initArg: lookup,
     });
+    const button = page.getByRole('button', { name: 'Install Glow Words' });
+    if (lookup === 'installed') {
+      await page.waitForFunction(() => !document.querySelector('.install-button'));
+    } else {
+      await button.click();
+      await page.getByRole('button', { name: 'Not now' }).click();
+    }
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
-    const summary = lookup === 'installed' ? 'Where to find Glow Words' : 'How to install';
-    await page.getByRole('dialog', { name: 'Puzzle settings' }).getByText(summary, { exact: true }).waitFor();
+    assert.doesNotMatch(await page.getByRole('dialog', { name: 'Puzzle settings' }).innerText(), /install/i);
     assert.equal(page.url(), base + suffix);
   }
 });
@@ -488,20 +560,19 @@ test('install dialog offers help, consumes native prompts once and hides after i
   }, outcome);
   await sendPrompt('dismissed');
   await page.getByRole('button', { name: 'Install app', exact: true }).click();
-  await page.getByText('Installation canceled.').waitFor();
+  await page.getByText('Installation canceled. You can keep playing here.', { exact: true }).waitFor();
   await page.getByText('Add to Home Screen', { exact: true }).waitFor();
   const time = await page.locator('.timer').textContent();
   await page.clock.runFor(3000);
   assert.equal(await page.locator('.timer').textContent(), time);
   await sendPrompt('accepted');
   await page.getByRole('button', { name: 'Install app', exact: true }).click();
-  await page.getByText('Glow Words is installed.').waitFor();
+  await page.getByRole('dialog').waitFor({ state: 'detached' });
   assert.equal(await page.evaluate(() => window.prompts), 2);
-  await page.getByRole('button', { name: 'Back to puzzle' }).click();
   assert.equal(await page.getByRole('button', { name: 'Install Glow Words' }).count(), 0);
 });
 
-test('automatic install offer pauses play and appears once per tab session', async t => {
+test('the automatic offer pauses play and appears once on each visit, including browser Back', async t => {
   const { page } = await openPuzzle(t, { dismissInstallOffer: false, mockClock: true });
   const offer = page.getByRole('dialog', { name: 'Install Glow Words' });
   await offer.waitFor();
@@ -511,11 +582,19 @@ test('automatic install offer pauses play and appears once per tab session', asy
   await offer.getByRole('button', { name: 'Not now' }).click();
   await page.getByRole('gridcell').first().waitFor();
   await page.reload();
+  await offer.getByRole('button', { name: 'Not now' }).click();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Start new puzzle' }).click();
   await page.getByRole('gridcell').first().waitFor();
   await page.getByRole('button', { name: 'Install Glow Words' }).click();
-  await offer.getByRole('button', { name: 'Back to puzzle' }).click();
+  await offer.getByRole('button', { name: 'Not now' }).click();
+  await page.goto('data:text/html,<title>Another page</title>');
+  await page.goBack();
+  await offer.getByRole('button', { name: 'Not now' }).click();
+  await page.getByRole('gridcell').first().waitFor();
+  // Also exercise a restored document on runners that disable the back-forward cache.
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
+  await offer.getByRole('button', { name: 'Not now' }).click();
 });
 
 test('a prompt installed-app result suppresses the automatic offer', async t => {
@@ -531,8 +610,6 @@ test('a prompt installed-app result suppresses the automatic offer', async t => 
   await page.waitForFunction(() => !document.querySelector('.install-button'));
   assert.equal(await page.getByRole('dialog').count(), 0);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByText('Where to find Glow Words', { exact: true }).click();
-  await page.getByText(/open the app drawer/).waitFor();
   assert.equal(await page.getByText('How to install', { exact: true }).count(), 0);
 });
 
@@ -579,6 +656,7 @@ test('Pages-scoped manifest, artwork, fonts, sound and puzzle load offline', asy
   assert.equal(new URL(manifest.scope, base).href, base);
   await context.setOffline(true);
   await page.goto(base + '?offline=1');
+  await page.getByRole('button', { name: 'Not now' }).click();
   await page.getByRole('gridcell').first().waitFor();
   assert.equal(await page.getByRole('gridcell').count(), 100);
   await page.evaluate(() => document.fonts.ready);
@@ -605,10 +683,15 @@ test('Chromium installs the Pages app in a fresh regular profile', async t => {
   assert.equal(await installedGame.evaluate(() => matchMedia('(display-mode: standalone)').matches), true);
   assert.equal(await installedGame.getByRole('button', { name: 'Install Glow Words' }).count(), 0);
   await installedGame.getByRole('button', { name: 'Settings', exact: true }).click();
-  await installedGame.getByText('Where to find Glow Words', { exact: true }).click();
-  await installedGame.getByText(/computer’s apps/).waitFor();
+  assert.doesNotMatch(await installedGame.getByRole('dialog', { name: 'Puzzle settings' }).innerText(), /install/i);
   const returningTab = await context.newPage();
   await returningTab.goto(base);
+  const listed = await returningTab.evaluate(async () => {
+    const apps = await navigator.getInstalledRelatedApps?.();
+    const manifest = document.querySelector('link[rel=manifest]').href;
+    return apps?.some(app => app.platform === 'webapp' && (app.url === manifest || app.id === new URL('./', manifest).href));
+  });
+  if (!listed) await returningTab.getByRole('button', { name: 'Not now' }).click();
   await returningTab.getByRole('gridcell').first().waitFor();
   await returningTab.getByRole('button', { name: 'Settings', exact: true }).click();
   await returningTab.getByRole('dialog', { name: 'Puzzle settings' }).waitFor();

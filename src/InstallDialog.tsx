@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import CopyGameLink from './CopyGameLink';
 import Icon from './Icon';
-import InstallHelp from './InstallHelp';
+import InstallSteps from './InstallSteps';
 import { getInstallLaunch } from './installLaunch';
 import Modal from './Modal';
-import { offlineReady as offlineReadyForPlay } from './offline';
 
 interface InstallPrompt extends Event {
   prompt(): Promise<void>;
@@ -15,35 +15,23 @@ const nav = navigator as Navigator & {
   getInstalledRelatedApps?: () => Promise<{ platform: string; url?: string; id?: string }[]>;
 };
 const standalone = matchMedia('(display-mode: standalone), (display-mode: minimal-ui), (display-mode: window-controls-overlay)');
-const offerKey = 'glowwords.installOfferSeen';
-const installedKey = 'glowwords.installConfirmed';
 
 export function useInstall() {
   const [launch] = useState(getInstallLaunch);
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null);
   const [installedHere, setInstalledHere] = useState(false);
-  const [previousInstall, setPreviousInstall] = useState(() => {
-    try { return localStorage.getItem(installedKey) === '1'; } catch { return false; }
-  });
   const [alreadyInstalled, setAlreadyInstalled] = useState(false);
   const [checked, setChecked] = useState(false);
-  const [offerSeen, setOfferSeen] = useState(() => {
-    if (launch.showEntryHelp) return false;
-    try { return sessionStorage.getItem(offerKey) === '1'; } catch { return false; }
-  });
-  const rememberOffer = useCallback(() => {
-    setOfferSeen(true);
-    if (launch.showEntryHelp) return;
-    try { sessionStorage.setItem(offerKey, '1'); } catch { /* The current game still remembers the offer. */ }
-  }, [launch]);
+  const [offerSeen, setOfferSeen] = useState(false);
+  const rememberOffer = useCallback(() => setOfferSeen(true), []);
   const [appMode, setAppMode] = useState(standalone.matches);
-  const [offlineReady, setOfflineReady] = useState(false);
   useEffect(() => {
     let active = true;
     let latestCheck = 0;
     const manifest = document.querySelector<HTMLLinkElement>('link[rel="manifest"]')?.href;
     // Give a fast positive result time to arrive. Some webviews never settle the lookup.
-    const deadline = window.setTimeout(() => setChecked(true), 600);
+    const startDeadline = () => window.setTimeout(() => setChecked(true), 600);
+    let deadline = startDeadline();
     const checkInstalled = async () => {
       const check = ++latestCheck;
       try {
@@ -61,25 +49,29 @@ export function useInstall() {
     };
     if (document.readyState === 'complete') void checkInstalled();
     else window.addEventListener('load', checkInstalled, { once: true });
-    void offlineReadyForPlay.then(ready => { if (active) setOfflineReady(ready); });
+    const restoreVisit = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      // Back/Forward can restore this exact document, including an already-open dialog.
+      setOfferSeen(Boolean(document.querySelector('dialog.install-dialog[open]')));
+      setInstalledHere(false);
+      setAlreadyInstalled(false);
+      setChecked(false);
+      window.clearTimeout(deadline);
+      deadline = startDeadline();
+      void checkInstalled();
+    };
     const reflect = () => setAppMode(standalone.matches);
     const capture = (event: Event) => {
       event.preventDefault();
       setPrompt(event as InstallPrompt);
-      // A fresh eligibility event also covers uninstalling the app.
-      try { localStorage.removeItem(installedKey); } catch { /* Storage is optional. */ }
-      setPreviousInstall(false);
       setInstalledHere(false);
     };
     const installed = () => { setInstalledHere(true); setPrompt(null); };
-    const syncInstall = (event: StorageEvent) => {
-      if (event.key === installedKey) setPreviousInstall(event.newValue === '1');
-    };
     standalone.addEventListener('change', reflect);
     window.addEventListener('focus', checkInstalled);
     window.addEventListener('beforeinstallprompt', capture);
     window.addEventListener('appinstalled', installed);
-    window.addEventListener('storage', syncInstall);
+    window.addEventListener('pageshow', restoreVisit);
     return () => {
       active = false;
       window.clearTimeout(deadline);
@@ -88,7 +80,7 @@ export function useInstall() {
       window.removeEventListener('focus', checkInstalled);
       window.removeEventListener('beforeinstallprompt', capture);
       window.removeEventListener('appinstalled', installed);
-      window.removeEventListener('storage', syncInstall);
+      window.removeEventListener('pageshow', restoreVisit);
     };
   }, []);
   const canUseInstallApi = window.top === window.self && typeof nav.install === 'function';
@@ -108,27 +100,18 @@ export function useInstall() {
   // On iOS the window can explicitly report browser mode even when its host looks standalone.
   const ownWindow = !launch.external && (nav.standalone ?? appMode);
   const installed = ownWindow || installedHere || alreadyInstalled;
-  useEffect(() => {
-    if (installed) {
-      setPreviousInstall(true);
-      try { localStorage.setItem(installedKey, '1'); } catch { /* In-memory detection still works. */ }
-    }
-  }, [installed]);
-  const skipOffer = installed || launch.invited || (!launch.showEntryHelp && previousInstall);
   return {
-    offlineReady,
     installed,
-    skipOffer,
-    showEntryHelp: launch.showEntryHelp,
-    shouldOffer: checked && !skipOffer && !offerSeen,
+    embedded: launch.external,
+    shouldOffer: checked && !installed && !launch.invited && !offerSeen,
     rememberOffer,
     canPrompt: window.isSecureContext && Boolean(canUseInstallApi || prompt),
     request,
   };
 }
 
-export default function InstallDialog({ install, automatic, onDismiss }: {
-  install: ReturnType<typeof useInstall>; automatic: boolean; onDismiss: () => void;
+export default function InstallDialog({ install, onDismiss }: {
+  install: ReturnType<typeof useInstall>; onDismiss: () => void;
 }) {
   const [message, setMessage] = useState('');
   const [pending, setPending] = useState(false);
@@ -136,23 +119,28 @@ export default function InstallDialog({ install, automatic, onDismiss }: {
     if (pending) return;
     setPending(true);
     try {
-      if (!await install.request()) setMessage('Installation canceled.');
+      setMessage('');
+      if (!await install.request()) setMessage('Installation canceled. You can keep playing here.');
     } catch (error) {
       setMessage(error instanceof DOMException && error.name === 'AbortError'
-        ? 'Installation canceled.'
-        : 'Installation didn’t finish. You can also use your browser’s install menu.');
+        ? 'Installation canceled. You can keep playing here.'
+        : 'The installer could not open. Try again or use your browser’s install menu.');
     } finally { setPending(false); }
   };
-  return <Modal titleId="install-title" className="install-dialog" onDismiss={onDismiss}>
-    <button className="dialog-close" onClick={onDismiss} aria-label="Close install dialog"><Icon name="close" /></button>
+  const native = install.canPrompt || pending;
+  return <Modal titleId="install-title" className="install-dialog" onShow={install.rememberOffer} onDismiss={onDismiss}>
     <img className="app-icon" src={`${import.meta.env.BASE_URL}icons/glow-192.png`} alt="" />
     <h2 id="install-title">Install Glow Words</h2>
-    <p>Keep the word garden on your home screen.{install.offlineReady && ' This device is ready for offline play.'}</p>
-    {install.installed ? <p role="status">Glow Words is installed.</p> : <>
-      <div role="status">{message}</div>
-      {(install.canPrompt || pending) && <button className="primary-button" aria-disabled={pending} onClick={request}><Icon name="install" />{pending ? 'Installing…' : 'Install app'}</button>}
+    <p>Keep Glow Words on your home screen and play offline after your first visit.</p>
+    {(!native || install.embedded) && <>
+      <InstallSteps embedded={install.embedded} />
+      <details className="install-copy" open={install.embedded}>
+        <summary>Copy the game link</summary>
+        <CopyGameLink showLabel={false} />
+      </details>
     </>}
-    <InstallHelp installed={install.installed} expanded={install.showEntryHelp || (!automatic && !install.canPrompt && !pending)} />
-    <button type="button" className="quiet-button" onClick={onDismiss}>{automatic ? 'Not now' : 'Back to puzzle'}</button>
+    {native && <button autoFocus={!install.embedded} className="primary-button" aria-disabled={pending} onClick={request}><Icon name="install" />{pending ? 'Installing…' : 'Install app'}</button>}
+    <div role="status">{message}</div>
+    <button type="button" className="quiet-button" onClick={onDismiss}>Not now</button>
   </Modal>;
 }

@@ -147,13 +147,13 @@ progress::-moz-progress-bar { border-radius: 5px; background: #ffd583; }
 .primary-button { display: flex; align-items: center; justify-content: center; gap: 9px; border: 1px solid #715497; background: #6c4b90; color: white; box-shadow: 0 3px 0 #50366c; }
 .primary-button:hover { background: #79559f; }
 .quiet-button { margin-top: 7px; background: transparent; color: #725886; border: 0; }
-.install-help, .result-stats { padding: 14px; border-radius: 12px; background: #f3e8d6; margin-bottom: 12px; }
-.install-help { margin-top: 12px; padding: 0 14px; }
-.install-help summary { padding: 12px 0; cursor: pointer; font-weight: 800; }
-.install-help summary:focus-visible { outline: 3px solid var(--violet); outline-offset: 2px; }
-.install-help ol { padding-left: 22px; margin: 0; }
-.install-help li + li { margin-top: 8px; }
-.install-help p:last-child { padding-bottom: 12px; margin-bottom: 0; }
+.install-copy, .result-stats { padding: 14px; border-radius: 12px; background: #f3e8d6; margin-bottom: 12px; }
+.install-copy { margin-top: 12px; padding-block: 0; }
+.install-copy summary { padding: 12px 0; cursor: pointer; font-weight: 800; }
+.install-copy summary:focus-visible { outline: 3px solid var(--violet); outline-offset: 2px; }
+.install-copy .copy-game-link { padding-bottom: 14px; }
+ol.install-steps { padding-left: 22px; }
+.install-steps li + li { margin-top: 8px; }
 .install-dialog [role='status']:not(:empty) { margin: 12px 0; }
 .copy-game-link label { display: block; margin: 16px 0 5px; }
 .copy-game-link input { width: 100%; padding: 10px; margin-bottom: 14px; border: 1px solid #c4b5a3; border-radius: 9px; font: inherit; color: var(--ink); background: #fffefa; }

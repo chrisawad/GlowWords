@@ -13,10 +13,13 @@ export function getInstallLaunch() {
   const dashboard = fragment.getAll('from').includes('games-dashboard')
     || /^https:\/\/(?:games\.chrisawad\.com\/|chrisawad\.github\.io\/Games-Dashboard(?:\/|$))/i.test(document.referrer);
   const ua = navigator.userAgent;
-  const webView = /;\s*wv\b|Version\/4\.0.*Chrome\/|FBAN|FBAV|Instagram|MicroMessenger|GSA\//i.test(ua)
+  const androidAppReferrer = platform === 'android' && /^android-app:\/\/(?!org\.chromium\.webapk\.)/i.test(document.referrer);
+  const webView = /;\s*wv\b|Version\/4\.0.*Chrome\/|FBAN|FBAV|FB_IAB|Instagram|MicroMessenger|\bLine\/|LinkedInApp|GSA\/|Snapchat|TikTok|BytedanceWebview|Pinterest|Twitter for/i.test(ua)
     || (platform === 'ios' && /AppleWebKit/i.test(ua) && !/Safari\//i.test(ua)
       && !(navigator as Navigator & { standalone?: boolean }).standalone);
-  const external = dashboard || window.top !== window.self || webView;
+  const inheritedDisplay = platform === 'ios' && (navigator as Navigator & { standalone?: boolean }).standalone === false
+    && matchMedia('(display-mode: standalone)').matches;
+  const external = dashboard || window.top !== window.self || androidAppReferrer || webView || inheritedDisplay;
   const invited = ['room', 'invite', 'join'].some(key => query.has(key) || fragment.has(key));
-  return { external, invited, showEntryHelp: external || platform === 'ios' || platform === 'android' };
+  return { external, invited };
 }
